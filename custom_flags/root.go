@@ -131,3 +131,76 @@ func (self *unionFlag) Set(value string) error {
 func (self unionFlag) Type() string {
 	return "string"
 }
+
+type RangeFlag struct {
+	value, min, max int
+	flagName        string
+}
+
+func NewRangeFlag(flagName string, min, max int) RangeFlag {
+
+	if min > max {
+		panic("min must be less than max")
+	}
+
+	if min < 0 || max < 0 {
+		panic("min and max must be non-negative")
+	}
+
+	if min > max {
+		panic("min must be less than max")
+	}
+
+	if min < 0 || max < 0 {
+		panic("min and max must be non-negative")
+	}
+
+	return RangeFlag{
+		min:      min,
+		max:      max,
+		flagName: flagName,
+	}
+}
+
+func (self RangeFlag) String() string {
+
+	return fmt.Sprintf("%d", self.value)
+}
+
+func (self RangeFlag) Value() int {
+	return self.value
+}
+
+func (self *RangeFlag) Set(value string) error {
+
+	match, error := regexp.MatchString(`^\d+$`, value)
+
+	if error != nil {
+		return error
+	}
+
+	if match {
+		num, _ := strconv.Atoi(value)
+		if num < self.min || num > self.max {
+			return fmt.Errorf(
+				"%sflag must be between %d and %d",
+				custom_errors.FlagName(self.flagName),
+				self.min,
+				self.max,
+			)
+		}
+		self.value = num
+		return nil
+	}
+
+	return fmt.Errorf(
+		"%sflag must be an integer between %d and %d",
+		custom_errors.FlagName(self.flagName),
+		self.min,
+		self.max,
+	)
+}
+
+func (self RangeFlag) Type() string {
+	return "string"
+}
