@@ -21,7 +21,7 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/mini-clis/cmd"
+import "github.com/louiss0/cobra-cli-template/cmd"
 
 func main() {
 	cmd.Execute()
