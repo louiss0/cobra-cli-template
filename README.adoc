@@ -1,0 +1,45 @@
+# cobra-cli-template
+
+This template provides a starting point for creating a CLI application using the Cobra library in Go.
+It makes it easy to create a CLI application with subcommands, flags, and arguments.
+It's a TDD centered approach to building CLI applications. It encourages the use of tests to ensure the correctness of the application's behavior.
+
+.Tools
+|===
+| type, | name,
+
+| utilities | samber/lo
+| test runner | onsi/ginkgo
+| assertion | testify/assert
+
+## Usage
+
+This is a TDD template which means you test commands by running a test suite.
+
+To test commands, you can run the following command:
+
+```sh
+ginkgo run
+```
+
+To watch files for changes and re-run tests:
+
+```sh
+ginkgo watch
+```
+
+### Writing Commands
+
+When you create a new command, you should follow these steps:
+
+. Create a new file in the `cmd` directory with the name of the command.
+. In the file, make a called New{CommandName}Cmd function that returns the command you see after using `cobra-cli add`.
+. In the init()'s rootCmd.AddCommand() Use the function you created in step 2.
+. In the function write the flags and arguments for the command after the variable creation.
+. Write tests for the command in the `cmd` directory.
+
+TIP: Use the `cobra-cli add` command to create a new command.
+
+WARNING: Remember to always add arguments to your commands.
+
+NOTE: Gingko will run tests in parallel by default.
