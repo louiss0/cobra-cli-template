@@ -11,6 +11,7 @@ It's a TDD centered approach to building CLI applications. It encourages the use
 | utilities | samber/lo
 | test runner | onsi/ginkgo
 | assertion | testify/assert
+| fake data | brianvoe/gofakeit/v7
 
 ## Usage
 

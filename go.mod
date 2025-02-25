@@ -3,6 +3,7 @@ module github.com/louiss0/cobra-cli-template
 go 1.23.2
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/samber/lo v1.49.1
 	github.com/spf13/cobra v1.9.1
@@ -10,7 +11,6 @@ require (
 )
 
 require (
-	github.com/brianvoe/gofakeit/v7 v7.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
