@@ -6,12 +6,14 @@ It's a TDD centered approach to building CLI applications. It encourages the use
 
 .Tools
 |===
-| type, | name,
+| type | name
 
 | utilities | samber/lo
 | test runner | onsi/ginkgo
 | assertion | testify/assert
 | fake data | brianvoe/gofakeit/v7
+|===
+
 
 ## Usage
 
@@ -35,7 +37,7 @@ When you create a new command, you should follow these steps:
 
 . Create a new file in the `cmd` directory with the name of the command.
 . In the file, make a called New{CommandName}Cmd function that returns the command you see after using `cobra-cli add`.
-. In the init()'s rootCmd.AddCommand() Use the function you created in step 2.
+. In the `init()` 's `rootCmd.AddCommand()` Use the function you created in step 2.
 . In the function write the flags and arguments for the command after the variable creation.
 . Write tests for the command in the `cmd` directory.
 
@@ -44,3 +46,30 @@ TIP: Use the `cobra-cli add` command to create a new command.
 NOTE: Remember to always add arguments to your commands.
 
 CAUTION: Gingko will run tests in parallel by default.
+
+
+## Project structure
+
+```
+├── cmd
+│   └── root.go
+├── cmd_test.go
+├── cobra_cli_template_suite_test.go
+├── custom_errors
+│   └── root.go
+├── custom_flags
+│   └── root.go
+├── go.mod
+├── go.sum
+├── LICENSE
+├── main.go
+```
+
+This project has the cmd package and two other packages.
+The `custom_errors` and `custom_flags` package. 
+The custom errors package was created to created named errors.
+The custom flags package is created for generic flags. 
+
+The custom_flags is filled with flags that are meant to be used in cobra's `cmd.Flags().Var()` methods.
+To use them you must create each struct in a variable then use each variable as a reference to each function.
+I decided to use the word `root.go` as the name of each file because it makes it clear that it's the main file. 
