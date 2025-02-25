@@ -40,6 +40,6 @@ When you create a new command, you should follow these steps:
 
 TIP: Use the `cobra-cli add` command to create a new command.
 
-WARNING: Remember to always add arguments to your commands.
+NOTE: Remember to always add arguments to your commands.
 
-NOTE: Gingko will run tests in parallel by default.
+CAUTION: Gingko will run tests in parallel by default.
