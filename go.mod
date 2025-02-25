@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect

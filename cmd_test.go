@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/brianvoe/gofakeit/v7"
 	"github.com/louiss0/cobra-cli-template/cmd"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/spf13/cobra"
@@ -50,6 +51,15 @@ var _ = Describe("Cmd", func() {
 
 		assert.NoError(err)
 
+	})
+
+	It("should give me a random number", func() {
+
+		number := gofakeit.Number(1, 100)
+
+		assert.True(number >= 1 && number <= 100)
+
+		assert.Equal(number, gofakeit.Number(1, 100))
 	})
 
 })
