@@ -17,8 +17,26 @@ It's a TDD centered approach to building CLI applications. It encourages the use
 
 ## Usage
 
-This is a TDD template which means you test commands by running a test suite.
+[NOTE]
+.To use this template you can use git to clone it. 
+====
+```sh
+git clone https://github.com/louiss0/cobra-cli-template .
+```
+====
 
+
+[NOTE]
+.Or you could use `gh cli`
+====
+```sh
+gh repo create {project name} --template louiss0/cobra-cli-template --public --clone
+```
+====
+
+[NOTE]
+.This is a TDD template which means you test commands by running a test suite.
+====
 To test commands, you can run the following command:
 
 ```sh
@@ -30,6 +48,7 @@ To watch files for changes and re-run tests:
 ```sh
 ginkgo watch
 ```
+====
 
 ### Writing Commands
 
@@ -50,7 +69,7 @@ CAUTION: Gingko will run tests in parallel by default.
 
 ## Project structure
 
-```
+```sh
 ├── cmd
 │   └── root.go
 ├── cmd_test.go
@@ -72,4 +91,4 @@ The custom flags package is created for generic flags.
 
 The custom_flags is filled with flags that are meant to be used in cobra's `cmd.Flags().Var()` methods.
 To use them you must create each struct in a variable then use each variable as a reference to each function.
-I decided to use the word `root.go` as the name of each file because it makes it clear that it's the main file. 
+I decided to use the word `root.go` as the name of each file because it makes it clear that it's the main file.
