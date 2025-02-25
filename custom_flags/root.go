@@ -1,4 +1,4 @@
-package customFlags
+package custom_flags
 
 import (
 	"fmt"
