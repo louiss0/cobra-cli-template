@@ -1,14 +1,9 @@
-package main
+package cmd_test
 
 import (
-	"bytes"
-	"fmt"
-
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/louiss0/cobra-cli-template/cmd"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
 )
 
 // This function executes a cobra command with the given arguments and returns the output and error.
@@ -18,29 +13,10 @@ import (
 // It's used to test the cobra commands.
 // When you use this function, make sure to pass the root command and any arguments you want to test.
 // The first argument after the rootCmd is any sub command or flag you want to test.
-func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
-
-	buf := new(bytes.Buffer)
-	errBuff := new(bytes.Buffer)
-
-	cmd.SetOut(buf)
-	cmd.SetErr(errBuff)
-	cmd.SetArgs(args)
-
-	err := cmd.Execute()
-
-	if errBuff.Len() > 0 {
-		return "", fmt.Errorf("command failed: %s", errBuff.String())
-	}
-
-	return buf.String(), err
-}
 
 var rootCmd = cmd.NewRootCmd()
 
 var _ = Describe("Cmd", func() {
-
-	assert := assert.New(GinkgoT())
 
 	It("should be able to run", func() {
 
@@ -59,7 +35,6 @@ var _ = Describe("Cmd", func() {
 
 		assert.True(number >= 1 && number <= 100)
 
-		assert.Equal(number, gofakeit.Number(1, 100))
 	})
 
 })
