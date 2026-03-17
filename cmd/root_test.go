@@ -23,9 +23,11 @@ var _ = Describe("Cmd", func() {
 		// The "" needs to be passed as an argument to the executeCmd function with rootCmd
 		// If not then there will be an error
 		// This is because gingko will pass a flag to the command to indicate that it is running in a test environment
-		_, err := executeCmd(rootCmd, "")
+		output, err := executeCmd(rootCmd, "")
 
 		assert.NoError(err)
+
+		assert.Equal("Root here", output)
 
 	})
 
