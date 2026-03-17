@@ -1,0 +1,9 @@
+import (
+	"github.com/louiss0/cobra-cli-template/cmd"
+	. "github.com/onsi/ginkgo/v2"
+)
+
+var _ = Describe("", func() {
+
+
+})
