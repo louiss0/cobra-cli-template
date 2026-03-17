@@ -1,9 +1,11 @@
+package {{.Package}}
+
 import (
 	"github.com/louiss0/cobra-cli-template/cmd"
-	. "github.com/onsi/ginkgo/v2"
+	{{.GinkgoImport}}
 )
 
-var _ = Describe("", func() {
+var _ = Describe("{{.Subject}}", func() {
 
     It("Works", func() {
 

@@ -1,11 +1,11 @@
-package cmd_test
+package {{.Package}}_test
 
 import (
 	"bytes"
 	"fmt"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
+	{{.GinkgoImport}}
 	"github.com/spf13/cobra"
 	tAssert "github.com/stretchr/testify/assert"
 )
