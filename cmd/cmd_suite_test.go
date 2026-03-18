@@ -17,20 +17,18 @@ func TestCobraCliTemplate(t *testing.T) {
 	RunSpecs(t, "CMD Suite")
 }
 
-func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
+func executeCmd(command *cobra.Command, args ...string) (string, error) {
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
 
-	buf := new(bytes.Buffer)
-	errBuff := new(bytes.Buffer)
+	command.SetOut(stdout)
+	command.SetErr(stderr)
+	command.SetArgs(args)
 
-	cmd.SetOut(buf)
-	cmd.SetErr(errBuff)
-	cmd.SetArgs(args)
-
-	err := cmd.Execute()
-
-	if errBuff.Len() > 0 {
-		return "", fmt.Errorf("command failed: %s", errBuff.String())
+	err := command.Execute()
+	if err != nil && stderr.Len() > 0 {
+		return "", fmt.Errorf("%w: %s", err, stderr.String())
 	}
 
-	return buf.String(), err
+	return stdout.String(), err
 }
