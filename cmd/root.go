@@ -1,17 +1,31 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/spf13/cobra"
 )
 
-func NewRootCmd() *cobra.Command {
+func GenerateContextFromMap(cmd *cobra.Command, dependencies map[string]any) context.Context {
 
-	var Args struct {
-		Info string
+	ctx := cmd.Context()
+	for k, v := range dependencies {
+		ctx = context.WithValue(ctx, k, v)
 	}
+	return ctx
+}
+
+type Dependencies struct {
+}
+
+var rootCmd *cobra.Command
+
+func init() {
+	rootCmd = NewRootCmd(Dependencies{})
+}
+
+func NewRootCmd(deps Dependencies) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cli",
@@ -20,22 +34,24 @@ func NewRootCmd() *cobra.Command {
 The template is organized for test-driven development using Ginkgo and
 Testify assertions.`,
 
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				Args.Info = args[0]
-				return output.WriteModeAwareOutput(cmd, fmt.Sprintf("Root here %s", Args.Info))
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-			}
+			ctx := GenerateContextFromMap(cmd, map[string]any{})
+
+			cmd.SetContext(ctx)
+
+			return nil
+		},
+
+		RunE: func(cmd *cobra.Command, args []string) error {
 
 			return output.WriteModeAwareOutput(cmd, "Root here")
 		},
 	}
 
-	cmd.MarkFlagsMutuallyExclusive()
-
 	return cmd
 }
 
 func Execute() error {
-	return NewRootCmd().Execute()
+	return rootCmd.ExecuteContext(context.Background())
 }
