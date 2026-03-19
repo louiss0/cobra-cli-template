@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"strings"
 
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/validation"
@@ -51,8 +52,12 @@ Testify assertions.`,
 		},
 
 		RunE: func(cmd *cobra.Command, args []string) error {
+			message := "Root here"
+			if len(args) > 0 {
+				message = message + " " + strings.Join(args, " ")
+			}
 
-			return output.WriteModeAwareOutput(cmd, "Root here")
+			return output.WriteModeAwareOutput(cmd, message)
 		},
 	}
 
