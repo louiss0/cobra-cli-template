@@ -168,3 +168,16 @@ Each prop needs a function to be passed that will instanciate a struct or return
 Make sure that the the dependencies are functions that 
 - Return a struct 
 - Return functions that only need values not other structs!
+
+## goZod usage in this project
+
+Use goZod for runtime validation where Cobra dependency wiring or command input
+can drift from compile-time intent.
+
+- Use `gozod.FromStruct[T]()` when validating typed dependency/config structs.
+- Use the `validation.NewFunctionValuesStructSchema[T]()` helper when a struct
+  is expected to only contain function fields and all functions must be set.
+- Prefer schema-level `.Check(...)` for cross-field rules and for building
+  messages that list missing dependencies.
+- Keep per-command argument validation in Cobra `Args` functions and reserve
+  goZod for internal runtime contracts and dependency shape checks.

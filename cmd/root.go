@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/louiss0/cobra-cli-template/output"
+	"github.com/louiss0/cobra-cli-template/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -17,15 +18,21 @@ func GenerateContextFromMap(cmd *cobra.Command, dependencies map[string]any) con
 }
 
 type Dependencies struct {
+	CommandRunner func() error
+	ContextSetup  func(*cobra.Command, []string) error
 }
 
 var rootCmd *cobra.Command
+
+var schema = validation.NewFunctionValuesStructSchema[Dependencies]()
 
 func init() {
 	rootCmd = NewRootCmd(Dependencies{})
 }
 
 func NewRootCmd(deps Dependencies) *cobra.Command {
+
+	schema.Parse(deps)
 
 	cmd := &cobra.Command{
 		Use:   "cli",
