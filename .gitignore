@@ -1,2 +1,4 @@
 go.sum
 .zed/
+# Added by goreleaser init:
+dist/
