@@ -2,25 +2,38 @@ package cmd
 
 import (
 	"context"
-	"strings"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
-	"github.com/louiss0/cobra-cli-template/output"
+	"github.com/louiss0/cobra-cli-template/auth"
+	"github.com/louiss0/cobra-cli-template/tasks"
 	"github.com/louiss0/cobra-cli-template/validation"
 	"github.com/spf13/cobra"
 )
 
-func GenerateContextFromMap(cmd *cobra.Command, dependencies map[string]any) context.Context {
+type commandContextKey string
 
+const (
+	_AUTH_SERVICE commandContextKey = "auth-service"
+	_TASK_STORE   commandContextKey = "task-store"
+	_CURRENT_TIME commandContextKey = "current-time"
+)
+
+func GenerateContextFromMap(cmd *cobra.Command, dependencies map[string]any) context.Context {
 	ctx := cmd.Context()
-	for k, v := range dependencies {
-		ctx = context.WithValue(ctx, k, v)
+	for key, dependency := range dependencies {
+		ctx = context.WithValue(ctx, key, dependency)
 	}
 	return ctx
 }
 
 type Dependencies struct {
-	CommandRunner func() error
-	ContextSetup  func(*cobra.Command, []string) error
+	NewAuthService func(string) *auth.Service
+	NewTaskStore   func(string, func() time.Time, func() string) *tasks.Store
+	Now            func() time.Time
+	NewTaskID      func() string
 }
 
 var rootCmd *cobra.Command
@@ -32,38 +45,103 @@ func init() {
 }
 
 func NewRootCmd(deps Dependencies) *cobra.Command {
+	deps = withDependencyDefaults(deps)
 
-	schema.Parse(deps)
+	if _, err := schema.Parse(deps); err != nil {
+		panic(err)
+	}
+
+	rootFlags := struct {
+		DataDir string
+	}{}
 
 	cmd := &cobra.Command{
-		Use:   "cli",
-		Short: "Build CLI applications with Cobra and Go",
-		Long: `A starter template for building maintainable Cobra applications.
-The template is organized for test-driven development using Ginkgo and
-Testify assertions.`,
-
+		Use:          "task-list",
+		Short:        "Manage signed-in users and their task lists",
+		Long:         "Manage signed-in users and their task lists with local JSON storage.",
+		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			authService := deps.NewAuthService(rootFlags.DataDir)
+			taskStore := deps.NewTaskStore(rootFlags.DataDir, deps.Now, deps.NewTaskID)
 
-			ctx := GenerateContextFromMap(cmd, map[string]any{})
+			ctx := GenerateContextFromMap(cmd, map[string]any{
+				string(_AUTH_SERVICE): authService,
+				string(_TASK_STORE):   taskStore,
+				string(_CURRENT_TIME): deps.Now,
+			})
 
 			cmd.SetContext(ctx)
-
 			return nil
 		},
-
 		RunE: func(cmd *cobra.Command, args []string) error {
-			message := "Root here"
-			if len(args) > 0 {
-				message = message + " " + strings.Join(args, " ")
-			}
-
-			return output.WriteModeAwareOutput(cmd, message)
+			return cmd.Help()
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(
+		&rootFlags.DataDir,
+		"data-dir",
+		defaultDataDir(),
+		"Directory used for users, session, and task JSON files.",
+	)
+
+	cmd.AddGroup(
+		&cobra.Group{ID: "auth", Title: "Authentication Commands"},
+		&cobra.Group{ID: "task", Title: "Task Commands"},
+	)
+
+	cmd.AddCommand(NewAuthCmd())
+	cmd.AddCommand(NewTaskCmd())
 
 	return cmd
 }
 
 func Execute() error {
 	return rootCmd.ExecuteContext(context.Background())
+}
+
+func withDependencyDefaults(deps Dependencies) Dependencies {
+	if deps.NewAuthService == nil {
+		deps.NewAuthService = auth.NewService
+	}
+
+	if deps.NewTaskStore == nil {
+		deps.NewTaskStore = tasks.NewStore
+	}
+
+	if deps.Now == nil {
+		deps.Now = time.Now
+	}
+
+	if deps.NewTaskID == nil {
+		deps.NewTaskID = tasks.NewTaskID
+	}
+
+	return deps
+}
+
+func defaultDataDir() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return filepath.Join(".", ".task-list")
+	}
+
+	return filepath.Join(configDir, "task-list")
+}
+
+func getAuthServiceFromCommandContext(cmd *cobra.Command) *auth.Service {
+	return cmd.Context().Value(string(_AUTH_SERVICE)).(*auth.Service)
+}
+
+func getTaskStoreFromCommandContext(cmd *cobra.Command) *tasks.Store {
+	return cmd.Context().Value(string(_TASK_STORE)).(*tasks.Store)
+}
+
+func signedInUsernameFromCommandContext(cmd *cobra.Command) (string, error) {
+	username, err := getAuthServiceFromCommandContext(cmd).CurrentUser()
+	if err != nil {
+		return "", fmt.Errorf("sign in first")
+	}
+
+	return username, nil
 }

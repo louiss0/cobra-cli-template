@@ -18,11 +18,16 @@ func TestCobraCliTemplate(t *testing.T) {
 }
 
 func executeCmd(command *cobra.Command, args ...string) (string, error) {
+	return executeCmdWithInput(command, "", args...)
+}
+
+func executeCmdWithInput(command *cobra.Command, input string, args ...string) (string, error) {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 
 	command.SetOut(stdout)
 	command.SetErr(stderr)
+	command.SetIn(bytes.NewBufferString(input))
 	command.SetArgs(args)
 
 	err := command.Execute()
