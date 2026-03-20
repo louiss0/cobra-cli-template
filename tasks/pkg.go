@@ -143,7 +143,7 @@ func (task *Task) UnmarshalJSON(content []byte) error {
 	return nil
 }
 
-func PresentTask(task Task) any {
+func PresentTask(task Task) publicTask {
 	return publicTask{
 		ID:          task.ID,
 		Title:       task.Title,
@@ -154,9 +154,9 @@ func PresentTask(task Task) any {
 	}
 }
 
-func PresentTasks(list []Task) any {
+func PresentTasks(list []Task) []publicTask {
 	return lo.Map(list, func(task Task, _ int) publicTask {
-		return PresentTask(task).(publicTask)
+		return PresentTask(task)
 	})
 }
 

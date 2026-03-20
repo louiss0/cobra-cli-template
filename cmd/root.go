@@ -44,12 +44,15 @@ var rootCmd *cobra.Command
 var schema = validation.NewFunctionValuesStructSchema[Dependencies]()
 
 func init() {
-	rootCmd = NewRootCmd(Dependencies{})
+	rootCmd = NewRootCmd(Dependencies{
+		NewAuthService: auth.NewService,
+		NewTaskStore:   tasks.NewStore,
+		Now:            time.Now,
+		NewTaskID:      tasks.NewTaskID,
+	})
 }
 
 func NewRootCmd(deps Dependencies) *cobra.Command {
-	deps = withDependencyDefaults(deps)
-
 	if _, err := schema.Parse(deps); err != nil {
 		panic(err)
 	}
@@ -101,26 +104,6 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 
 func Execute() error {
 	return rootCmd.ExecuteContext(context.Background())
-}
-
-func withDependencyDefaults(deps Dependencies) Dependencies {
-	if deps.NewAuthService == nil {
-		deps.NewAuthService = auth.NewService
-	}
-
-	if deps.NewTaskStore == nil {
-		deps.NewTaskStore = tasks.NewStore
-	}
-
-	if deps.Now == nil {
-		deps.Now = time.Now
-	}
-
-	if deps.NewTaskID == nil {
-		deps.NewTaskID = tasks.NewTaskID
-	}
-
-	return deps
 }
 
 func defaultDataDir() string {

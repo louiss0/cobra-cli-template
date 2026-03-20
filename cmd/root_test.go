@@ -2,14 +2,22 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"time"
 
+	"github.com/louiss0/cobra-cli-template/auth"
 	"github.com/louiss0/cobra-cli-template/cmd"
+	"github.com/louiss0/cobra-cli-template/tasks"
 	. "github.com/onsi/ginkgo/v2"
 )
 
 var _ = Describe("Root Command", func() {
 	It("shows help information", func() {
-		output, err := executeCmd(cmd.NewRootCmd(cmd.Dependencies{}), "--help")
+		output, err := executeCmd(cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      tasks.NewTaskID,
+		}), "--help")
 
 		assert.NoError(err)
 		assert.Contains(output, "Manage signed-in users and their task lists")
@@ -21,7 +29,12 @@ var _ = Describe("Root Command", func() {
 		dataDir := GinkgoT().TempDir()
 
 		_, err := executeCmd(
-			cmd.NewRootCmd(cmd.Dependencies{}),
+			cmd.NewRootCmd(cmd.Dependencies{
+				NewAuthService: auth.NewService,
+				NewTaskStore:   tasks.NewStore,
+				Now:            time.Now,
+				NewTaskID:      tasks.NewTaskID,
+			}),
 			"--data-dir", dataDir,
 			"task", "list",
 		)
@@ -32,7 +45,12 @@ var _ = Describe("Root Command", func() {
 
 	It("registers, signs in, and reports the active user", func() {
 		dataDir := GinkgoT().TempDir()
-		command := cmd.NewRootCmd(cmd.Dependencies{})
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      tasks.NewTaskID,
+		})
 
 		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
 		assert.NoError(err)
@@ -48,7 +66,12 @@ var _ = Describe("Root Command", func() {
 
 	It("creates tasks from prompts when flags are omitted", func() {
 		dataDir := GinkgoT().TempDir()
-		command := cmd.NewRootCmd(cmd.Dependencies{})
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      tasks.NewTaskID,
+		})
 
 		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
 		assert.NoError(err)
@@ -71,7 +94,10 @@ var _ = Describe("Root Command", func() {
 	It("lists complete and incomplete tasks separately", func() {
 		dataDir := GinkgoT().TempDir()
 		command := cmd.NewRootCmd(cmd.Dependencies{
-			NewTaskID: func() string { return "task-1" },
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      func() string { return "task-1" },
 		})
 
 		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
