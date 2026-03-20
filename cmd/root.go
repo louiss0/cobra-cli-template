@@ -10,6 +10,7 @@ import (
 	"github.com/louiss0/cobra-cli-template/auth"
 	"github.com/louiss0/cobra-cli-template/tasks"
 	"github.com/louiss0/cobra-cli-template/validation"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -22,11 +23,13 @@ const (
 )
 
 func GenerateContextFromMap(cmd *cobra.Command, dependencies map[string]any) context.Context {
-	ctx := cmd.Context()
-	for key, dependency := range dependencies {
-		ctx = context.WithValue(ctx, key, dependency)
-	}
-	return ctx
+	return lo.Reduce(
+		lo.Entries(dependencies),
+		func(ctx context.Context, entry lo.Entry[string, any], _ int) context.Context {
+			return context.WithValue(ctx, entry.Key, entry.Value)
+		},
+		cmd.Context(),
+	)
 }
 
 type Dependencies struct {

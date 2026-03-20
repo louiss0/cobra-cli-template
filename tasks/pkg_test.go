@@ -1,6 +1,7 @@
 package tasks_test
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/louiss0/cobra-cli-template/tasks"
@@ -24,6 +25,8 @@ var _ = Describe("Store", func() {
 		})
 		assert.NoError(err)
 		assert.True(updatedTask.Completed)
+		assert.Equal(now.Unix(), updatedTask.CreatedAt())
+		assert.Equal(now.Unix(), updatedTask.UpdatedAt())
 
 		allTasks, err := store.List("alice", tasks.ListFilterAll)
 		assert.NoError(err)
@@ -60,21 +63,26 @@ var _ = Describe("Store", func() {
 		assert.Empty(listedTasks)
 	})
 
-	It("formats public tasks with date strings", func() {
+	It("presents tasks with date strings through an any value", func() {
+		dataDir := GinkgoT().TempDir()
 		now := time.Date(2026, time.March, 20, 9, 0, 0, 0, time.UTC)
-		task := tasks.Task{
-			ID:          "task-1",
+		store := tasks.NewStore(dataDir, func() time.Time { return now }, func() string { return "task-1" })
+
+		task, err := store.Create("alice", tasks.CreateTaskInput{
 			Title:       "Write docs",
 			Description: "Explain the output",
-			Completed:   false,
-			CreatedAt:   now.Unix(),
-			UpdatedAt:   now.Unix(),
-		}
+		})
+		assert.NoError(err)
 
-		publicTask := tasks.NewPublicTask(task)
+		content, err := json.Marshal(tasks.PresentTask(task))
+		assert.NoError(err)
 
-		assert.Equal("incomplete", publicTask.Completed)
-		assert.Equal(now.Format(time.RFC3339), publicTask.CreatedAt)
-		assert.Equal(now.Format(time.RFC3339), publicTask.UpdatedAt)
+		var presentedTask map[string]any
+		err = json.Unmarshal(content, &presentedTask)
+
+		assert.NoError(err)
+		assert.Equal("incomplete", presentedTask["completed"])
+		assert.Equal(now.Format(time.RFC3339), presentedTask["createdAt"])
+		assert.Equal(now.Format(time.RFC3339), presentedTask["updatedAt"])
 	})
 })

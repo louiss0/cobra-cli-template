@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/samber/lo"
 )
 
 const weeklyCleanupWindow = 7 * 24 * time.Hour
@@ -28,11 +30,11 @@ type Task struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Completed   bool   `json:"completed"`
-	CreatedAt   int64  `json:"createdAt"`
-	UpdatedAt   int64  `json:"updatedAt"`
+	createdAt   int64
+	updatedAt   int64
 }
 
-type PublicTask struct {
+type publicTask struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
@@ -74,6 +76,15 @@ type taskBuckets struct {
 	Incomplete []Task `json:"incomplete"`
 }
 
+type taskJSON struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Completed   bool   `json:"completed"`
+	CreatedAt   int64  `json:"createdAt"`
+	UpdatedAt   int64  `json:"updatedAt"`
+}
+
 func OptionalBool(value bool) OptionalBoolean {
 	return OptionalBoolean{
 		IsSet: true,
@@ -97,24 +108,56 @@ func NewStore(dataDir string, now func() time.Time, newTaskID func() string) *St
 	}
 }
 
-func NewPublicTask(task Task) PublicTask {
-	return PublicTask{
+func (task Task) CreatedAt() int64 {
+	return task.createdAt
+}
+
+func (task Task) UpdatedAt() int64 {
+	return task.updatedAt
+}
+
+func (task Task) MarshalJSON() ([]byte, error) {
+	return json.Marshal(taskJSON{
+		ID:          task.ID,
+		Title:       task.Title,
+		Description: task.Description,
+		Completed:   task.Completed,
+		CreatedAt:   task.createdAt,
+		UpdatedAt:   task.updatedAt,
+	})
+}
+
+func (task *Task) UnmarshalJSON(content []byte) error {
+	var taskValue taskJSON
+	if err := json.Unmarshal(content, &taskValue); err != nil {
+		return err
+	}
+
+	task.ID = taskValue.ID
+	task.Title = taskValue.Title
+	task.Description = taskValue.Description
+	task.Completed = taskValue.Completed
+	task.createdAt = taskValue.CreatedAt
+	task.updatedAt = taskValue.UpdatedAt
+
+	return nil
+}
+
+func PresentTask(task Task) any {
+	return publicTask{
 		ID:          task.ID,
 		Title:       task.Title,
 		Description: task.Description,
 		Completed:   completionLabel(task.Completed),
-		CreatedAt:   formatUnixTimestamp(task.CreatedAt),
-		UpdatedAt:   formatUnixTimestamp(task.UpdatedAt),
+		CreatedAt:   formatUnixTimestamp(task.CreatedAt()),
+		UpdatedAt:   formatUnixTimestamp(task.UpdatedAt()),
 	}
 }
 
-func NewPublicTasks(list []Task) []PublicTask {
-	publicTasks := make([]PublicTask, 0, len(list))
-	for _, task := range list {
-		publicTasks = append(publicTasks, NewPublicTask(task))
-	}
-
-	return publicTasks
+func PresentTasks(list []Task) any {
+	return lo.Map(list, func(task Task, _ int) publicTask {
+		return PresentTask(task).(publicTask)
+	})
 }
 
 func (store *Store) Create(username string, input CreateTaskInput) (Task, error) {
@@ -135,8 +178,8 @@ func (store *Store) Create(username string, input CreateTaskInput) (Task, error)
 		Title:       input.Title,
 		Description: input.Description,
 		Completed:   input.Completed,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		createdAt:   now,
+		updatedAt:   now,
 	}
 
 	if task.Completed {
@@ -170,10 +213,7 @@ func (store *Store) List(username string, filter ListFilter) ([]Task, error) {
 	case ListFilterIncomplete:
 		return append([]Task(nil), document.Tasks.Incomplete...), nil
 	default:
-		allTasks := make([]Task, 0, len(document.Tasks.Incomplete)+len(document.Tasks.Complete))
-		allTasks = append(allTasks, document.Tasks.Incomplete...)
-		allTasks = append(allTasks, document.Tasks.Complete...)
-		return allTasks, nil
+		return lo.Concat(document.Tasks.Incomplete, document.Tasks.Complete), nil
 	}
 }
 
@@ -224,7 +264,7 @@ func (store *Store) Update(username string, id string, input UpdateTaskInput) (T
 		task.Completed = input.Completed.Value
 	}
 
-	task.UpdatedAt = store.now().Unix()
+	task.updatedAt = store.now().Unix()
 	document = removeTask(document, bucketName, index)
 
 	if task.Completed {
@@ -327,16 +367,16 @@ func (store *Store) runWeeklyCleanup(document *taskDocument) bool {
 }
 
 func findTask(document taskDocument, id string) (Task, string, int, bool) {
-	for index, task := range document.Tasks.Incomplete {
-		if task.ID == id {
-			return task, "incomplete", index, true
-		}
+	if task, index, found := lo.FindIndexOf(document.Tasks.Incomplete, func(task Task) bool {
+		return task.ID == id
+	}); found {
+		return task, "incomplete", index, true
 	}
 
-	for index, task := range document.Tasks.Complete {
-		if task.ID == id {
-			return task, "complete", index, true
-		}
+	if task, index, found := lo.FindIndexOf(document.Tasks.Complete, func(task Task) bool {
+		return task.ID == id
+	}); found {
+		return task, "complete", index, true
 	}
 
 	return Task{}, "", -1, false
@@ -345,9 +385,13 @@ func findTask(document taskDocument, id string) (Task, string, int, bool) {
 func removeTask(document taskDocument, bucketName string, index int) taskDocument {
 	switch bucketName {
 	case "complete":
-		document.Tasks.Complete = append(document.Tasks.Complete[:index], document.Tasks.Complete[index+1:]...)
+		document.Tasks.Complete = lo.Reject(document.Tasks.Complete, func(_ Task, taskIndex int) bool {
+			return taskIndex == index
+		})
 	default:
-		document.Tasks.Incomplete = append(document.Tasks.Incomplete[:index], document.Tasks.Incomplete[index+1:]...)
+		document.Tasks.Incomplete = lo.Reject(document.Tasks.Incomplete, func(_ Task, taskIndex int) bool {
+			return taskIndex == index
+		})
 	}
 
 	return document

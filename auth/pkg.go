@@ -7,7 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
+
+	"github.com/samber/lo"
 )
 
 var (
@@ -43,7 +44,7 @@ func (service *Service) Register(username string) error {
 		return err
 	}
 
-	if slices.Contains(users.Users, username) {
+	if lo.Contains(users.Users, username) {
 		return fmt.Errorf("%w: %s", ErrUserExists, username)
 	}
 
@@ -66,7 +67,7 @@ func (service *Service) SignIn(username string) error {
 		return err
 	}
 
-	if !slices.Contains(users.Users, username) {
+	if !lo.Contains(users.Users, username) {
 		return fmt.Errorf("%w: %s", ErrUserNotFound, username)
 	}
 

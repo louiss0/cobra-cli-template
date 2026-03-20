@@ -3,11 +3,14 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/louiss0/cobra-cli-template/custom_flags"
 	"github.com/louiss0/cobra-cli-template/tasks"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func NewTaskCmd() *cobra.Command {
@@ -49,14 +52,7 @@ func NewCreateCmd() *cobra.Command {
 				return err
 			}
 
-			reader := bufio.NewReader(cmd.InOrStdin())
-
-			title, err := taskFieldValue(cmd, reader, "Title", flags.Title)
-			if err != nil {
-				return err
-			}
-
-			description, err := taskFieldValue(cmd, reader, "Description", flags.Description)
+			title, description, err := runCreateTaskForm(cmd, flags.Title, flags.Description)
 			if err != nil {
 				return err
 			}
@@ -70,7 +66,7 @@ func NewCreateCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.NewPublicTask(task))
+			return writeJSONOutput(cmd, tasks.PresentTask(task))
 		},
 	}
 
@@ -108,7 +104,7 @@ func NewListCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.NewPublicTasks(taskList))
+			return writeJSONOutput(cmd, tasks.PresentTasks(taskList))
 		},
 	}
 
@@ -133,7 +129,7 @@ func NewGetCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.NewPublicTask(task))
+			return writeJSONOutput(cmd, tasks.PresentTask(task))
 		},
 	}
 }
@@ -184,7 +180,7 @@ func NewUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.NewPublicTask(task))
+			return writeJSONOutput(cmd, tasks.PresentTask(task))
 		},
 	}
 
@@ -219,14 +215,93 @@ func NewDeleteCmd() *cobra.Command {
 	}
 }
 
-func taskFieldValue(cmd *cobra.Command, reader *bufio.Reader, label string, currentValue string) (string, error) {
+func runCreateTaskForm(cmd *cobra.Command, currentTitle string, currentDescription string) (string, string, error) {
+	if shouldUseInteractiveForm(cmd.InOrStdin()) {
+		return runInteractiveCreateTaskForm(cmd, currentTitle, currentDescription)
+	}
+
+	return runPromptCreateTaskForm(cmd, currentTitle, currentDescription)
+}
+
+func runInteractiveCreateTaskForm(cmd *cobra.Command, currentTitle string, currentDescription string) (string, string, error) {
+	title := currentTitle
+	description := currentDescription
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Title").
+				Description("Enter the task title.").
+				Value(&title).
+				Validate(requiredText("title")),
+			huh.NewInput().
+				Title("Description").
+				Description("Enter the task description.").
+				Value(&description).
+				Validate(requiredText("description")),
+		).Title("Create Task"),
+	).Run()
+	if err != nil {
+		return "", "", fmt.Errorf("run task form: %w", err)
+	}
+
+	return title, description, nil
+}
+
+func runPromptCreateTaskForm(cmd *cobra.Command, currentTitle string, currentDescription string) (string, string, error) {
+	reader := bufio.NewReader(cmd.InOrStdin())
+
+	title, err := runPromptInput(cmd, reader, "Title", currentTitle)
+	if err != nil {
+		return "", "", err
+	}
+
+	description, err := runPromptInput(cmd, reader, "Description", currentDescription)
+	if err != nil {
+		return "", "", err
+	}
+
+	return title, description, nil
+}
+
+func requiredText(name string) func(string) error {
+	return func(value string) error {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("%s cannot be empty", name)
+		}
+
+		return nil
+	}
+}
+
+func runRequiredInput(cmd *cobra.Command, reader *bufio.Reader, title string, description string, fieldName string, currentValue string) (string, error) {
+	if strings.TrimSpace(currentValue) != "" {
+		return currentValue, nil
+	}
+
+	value := currentValue
+	field := huh.NewInput().
+		Title(title).
+		Description(description).
+		Value(&value).
+		Validate(requiredText(fieldName))
+
+	err := field.RunAccessible(cmd.ErrOrStderr(), reader)
+	if err != nil {
+		return "", fmt.Errorf("run %s input: %w", fieldName, err)
+	}
+
+	return value, nil
+}
+
+func runPromptInput(cmd *cobra.Command, reader *bufio.Reader, label string, currentValue string) (string, error) {
 	if strings.TrimSpace(currentValue) != "" {
 		return currentValue, nil
 	}
 
 	_, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s: ", label)
 	if err != nil {
-		return "", fmt.Errorf("write prompt: %w", err)
+		return "", fmt.Errorf("write %s prompt: %w", strings.ToLower(label), err)
 	}
 
 	value, err := reader.ReadString('\n')
@@ -235,11 +310,20 @@ func taskFieldValue(cmd *cobra.Command, reader *bufio.Reader, label string, curr
 	}
 
 	value = strings.TrimSpace(value)
-	if value == "" {
-		return "", fmt.Errorf("%s cannot be empty", strings.ToLower(label))
+	if err := requiredText(strings.ToLower(label))(value); err != nil {
+		return "", err
 	}
 
 	return value, nil
+}
+
+func shouldUseInteractiveForm(reader io.Reader) bool {
+	file, ok := reader.(interface{ Fd() uintptr })
+	if !ok {
+		return false
+	}
+
+	return term.IsTerminal(int(file.Fd()))
 }
 
 func parseListFilter(value string) (tasks.ListFilter, error) {
