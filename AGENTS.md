@@ -16,7 +16,19 @@ To make a new test, use the command `ginkgo generate <test_name> --template temp
 
 You are supposed to always write Ginkgo code when writing tests! Don't write Go testing code!
 
-It makes sure that all the tests pass because 
+When doing coverage create a `coverage` directory first if it does not exist.
+
+To generate coverage for every package use:
+
+```sh
+ginkgo -r --cover --output-dir coverage --keep-separate-coverprofiles
+```
+
+To regenerate just the `cmd` coverage file use:
+
+```sh
+ginkgo -r --cover --output-dir coverage --keep-separate-coverprofiles --skip-package auth,custom_errors,custom_flags,output,tasks,validation
+```
 
 
 ## How to develop commands! 
