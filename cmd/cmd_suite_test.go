@@ -23,7 +23,11 @@ func executeCmd(command *cobra.Command, args ...string) (string, error) {
 
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.SetArgs(args)
+	if len(args) == 0 {
+		command.SetArgs([]string{})
+	} else {
+		command.SetArgs(args)
+	}
 
 	err := command.Execute()
 	if err != nil && stderr.Len() > 0 {
