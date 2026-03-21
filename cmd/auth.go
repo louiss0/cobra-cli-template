@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/spf13/cobra"
 )
@@ -13,9 +12,9 @@ func NewAuthCmd() *cobra.Command {
 		Short:   "Manage local task-list users",
 		Long:    "Register users, sign in, sign out, and inspect the current session.",
 		GroupID: "auth",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
-		},
+		}),
 	}
 
 	cmd.AddCommand(
@@ -32,8 +31,8 @@ func NewRegisterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "register <username>",
 		Short: "Register a new user",
-		Args:  usernameArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args:  custom_errors.WrapArgs(usernameArgs),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username := args[0]
 			err := getAuthServiceFromCommandContext(cmd).Register(username)
 			if err != nil {
@@ -44,7 +43,7 @@ func NewRegisterCmd() *cobra.Command {
 				"status":   "registered",
 				"username": username,
 			})
-		},
+		}),
 	}
 }
 
@@ -52,8 +51,8 @@ func NewSignInCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "signin <username>",
 		Short: "Sign in as a registered user",
-		Args:  usernameArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args:  custom_errors.WrapArgs(usernameArgs),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username := args[0]
 			err := getAuthServiceFromCommandContext(cmd).SignIn(username)
 			if err != nil {
@@ -64,7 +63,7 @@ func NewSignInCmd() *cobra.Command {
 				"status":   "signed-in",
 				"username": username,
 			})
-		},
+		}),
 	}
 }
 
@@ -72,8 +71,8 @@ func NewSignOutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "signout",
 		Short: "Sign out the current user",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args:  custom_errors.WrapArgs(cobra.NoArgs),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			err := getAuthServiceFromCommandContext(cmd).SignOut()
 			if err != nil {
 				return err
@@ -82,7 +81,7 @@ func NewSignOutCmd() *cobra.Command {
 			return output.WriteJSONOutput(cmd, map[string]string{
 				"status": "signed-out",
 			})
-		},
+		}),
 	}
 }
 
@@ -90,8 +89,8 @@ func NewWhoAmICmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
 		Short: "Show the active user",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args:  custom_errors.WrapArgs(cobra.NoArgs),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := getAuthServiceFromCommandContext(cmd).CurrentUser()
 			if err != nil {
 				return err
@@ -100,7 +99,7 @@ func NewWhoAmICmd() *cobra.Command {
 			return output.WriteJSONOutput(cmd, map[string]string{
 				"username": username,
 			})
-		},
+		}),
 	}
 }
 
@@ -110,7 +109,9 @@ func usernameArgs(cmd *cobra.Command, args []string) error {
 	}
 
 	if args[0] != lower(args[0]) {
-		return fmt.Errorf("argument %q must be lowercase", args[0])
+		return custom_errors.CreateInvalidArgumentErrorWithMessage(
+			"username must be lowercase",
+		)
 	}
 
 	return nil

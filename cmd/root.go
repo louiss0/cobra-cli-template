@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/louiss0/cobra-cli-template/auth"
+	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/tasks"
 	"github.com/louiss0/cobra-cli-template/validation"
 	"github.com/samber/lo"
@@ -62,10 +62,11 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 	}{}
 
 	cmd := &cobra.Command{
-		Use:          "task-list",
-		Short:        "Manage signed-in users and their task lists",
-		Long:         "Manage signed-in users and their task lists with local JSON storage.",
-		SilenceUsage: true,
+		Use:           "task-list",
+		Short:         "Manage signed-in users and their task lists",
+		Long:          "Manage signed-in users and their task lists with local JSON storage.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			authService := deps.NewAuthService(rootFlags.DataDir)
 			taskStore := deps.NewTaskStore(rootFlags.DataDir, deps.Now, deps.NewTaskID)
@@ -79,9 +80,9 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 			cmd.SetContext(ctx)
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
-		},
+		}),
 	}
 
 	cmd.PersistentFlags().StringVar(
@@ -96,8 +97,14 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 		&cobra.Group{ID: "task", Title: "Task Commands"},
 	)
 
-	cmd.AddCommand(NewAuthCmd())
-	cmd.AddCommand(NewTaskCmd())
+	cmd.AddCommand(
+		NewAuthCmd(),
+		NewCreateCmd(),
+		NewListCmd(),
+		NewGetCmd(),
+		NewUpdateCmd(),
+		NewDeleteCmd(),
+	)
 
 	return cmd
 }
@@ -126,7 +133,7 @@ func getTaskStoreFromCommandContext(cmd *cobra.Command) *tasks.Store {
 func signedInUsernameFromCommandContext(cmd *cobra.Command) (string, error) {
 	username, err := getAuthServiceFromCommandContext(cmd).CurrentUser()
 	if err != nil {
-		return "", fmt.Errorf("sign in first")
+		return "", err
 	}
 
 	return username, nil

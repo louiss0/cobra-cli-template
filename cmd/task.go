@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/custom_flags"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/tasks"
@@ -16,28 +17,6 @@ import (
 	"golang.org/x/term"
 )
 
-func NewTaskCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "task",
-		Short:   "Manage tasks for the signed-in user",
-		Long:    "Create, read, update, delete, and filter tasks for the active user.",
-		GroupID: "task",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
-	}
-
-	cmd.AddCommand(
-		NewCreateCmd(),
-		NewListCmd(),
-		NewGetCmd(),
-		NewUpdateCmd(),
-		NewDeleteCmd(),
-	)
-
-	return cmd
-}
-
 func NewCreateCmd() *cobra.Command {
 	flags := struct {
 		Title       string
@@ -45,10 +24,11 @@ func NewCreateCmd() *cobra.Command {
 	}{}
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a task",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:     "create",
+		Short:   "Create a task",
+		GroupID: "task",
+		Args:    custom_errors.WrapArgs(cobra.NoArgs),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
@@ -68,7 +48,7 @@ func NewCreateCmd() *cobra.Command {
 			}
 
 			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&flags.Title, "title", "", "Task title.")
@@ -85,10 +65,11 @@ func NewListCmd() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List tasks",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:     "list",
+		Short:   "List tasks",
+		GroupID: "task",
+		Args:    custom_errors.WrapArgs(cobra.NoArgs),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
@@ -105,7 +86,7 @@ func NewListCmd() *cobra.Command {
 			}
 
 			return output.WriteJSONOutput(cmd, tasks.PresentTasks(taskList))
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&flags.Status, "status", string(tasks.ListFilterAll), "Filter by all, complete, or incomplete.")
@@ -115,10 +96,11 @@ func NewListCmd() *cobra.Command {
 
 func NewGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <task-id>",
-		Short: "Show one task",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:     "get <task-id>",
+		Short:   "Show one task",
+		GroupID: "task",
+		Args:    custom_errors.WrapArgs(cobra.ExactArgs(1)),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
@@ -130,7 +112,7 @@ func NewGetCmd() *cobra.Command {
 			}
 
 			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
-		},
+		}),
 	}
 }
 
@@ -142,20 +124,23 @@ func NewUpdateCmd() *cobra.Command {
 	completedFlag := custom_flags.NewBoolFlag("completed")
 
 	cmd := &cobra.Command{
-		Use:   "update [task-id]",
-		Short: "Update an existing task",
-		Args: func(cmd *cobra.Command, args []string) error {
+		Use:     "update [task-id]",
+		Short:   "Update an existing task",
+		GroupID: "task",
+		Args: custom_errors.WrapArgs(func(cmd *cobra.Command, args []string) error {
 			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
 				return err
 			}
 
 			if !cmd.Flags().Changed("title") && !cmd.Flags().Changed("description") && !cmd.Flags().Changed("completed") {
-				return fmt.Errorf("provide at least one flag to update")
+				return custom_errors.CreateInvalidArgumentErrorWithMessage(
+					"provide at least one flag to update",
+				)
 			}
 
 			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		}),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
@@ -186,7 +171,7 @@ func NewUpdateCmd() *cobra.Command {
 			}
 
 			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
-		},
+		}),
 	}
 
 	cmd.Flags().StringVar(&flags.Title, "title", "", "New task title.")
@@ -198,10 +183,11 @@ func NewUpdateCmd() *cobra.Command {
 
 func NewDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete [task-id]",
-		Short: "Delete a task",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:     "delete [task-id]",
+		Short:   "Delete a task",
+		GroupID: "task",
+		Args:    custom_errors.WrapArgs(cobra.MaximumNArgs(1)),
+		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
@@ -221,7 +207,7 @@ func NewDeleteCmd() *cobra.Command {
 				"status": "deleted",
 				"id":     taskID,
 			})
-		},
+		}),
 	}
 }
 
@@ -398,7 +384,10 @@ func parseListFilter(value string) (tasks.ListFilter, error) {
 	case string(tasks.ListFilterIncomplete):
 		return tasks.ListFilterIncomplete, nil
 	default:
-		return "", fmt.Errorf("status must be one of all, complete, incomplete")
+		return "", custom_errors.CreateInvalidFlagErrorWithMessage(
+			custom_errors.FlagName("status"),
+			"value must be one of [all complete incomplete]",
+		)
 	}
 }
 
