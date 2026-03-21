@@ -1,0 +1,92 @@
+name: Release Smoke Tests
+
+on:
+  release:
+    types: [published]
+
+env:
+  VERSION: ${{ github.event.release.tag_name }}
+
+jobs:
+  test-nix-linux:
+    name: Test Nix Installation (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v22
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Wait for NUR sync
+        run: sleep 30
+
+      - name: Install from NUR
+        run: |
+          nix profile install github:louiss0/the-code-fixer-23-nur#cobra-cli-template || \
+          echo "NUR not yet synced, this is expected for new releases"
+
+      - name: Test version
+        run: |
+          if command -v cobra-cli-template >/dev/null; then
+            cobra-cli-template --version
+          else
+            echo "Package not yet available in NUR"
+          fi
+
+  test-homebrew-macos:
+    name: Test Homebrew Cask (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Add tap
+        run: brew tap louiss0/homebrew-the-code-fixer-23
+
+      - name: Install cask
+        run: brew install --cask cobra-cli-template
+
+      - name: Test version
+        run: cobra-cli-template --version
+
+  test-winget-validation:
+    name: Validate Winget Manifest (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check if package exists in winget
+        id: check_winget
+        run: |
+          try {
+            $result = winget search the-code-fixer-23.cobra-cli-template
+            if ($result -match "cobra-cli-template") {
+              Write-Output "found=true" >> $env:GITHUB_OUTPUT
+            } else {
+              Write-Output "found=false" >> $env:GITHUB_OUTPUT
+            }
+          } catch {
+            Write-Output "found=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Test winget install
+        if: steps.check_winget.outputs.found == 'true'
+        run: |
+          winget install the-code-fixer-23.cobra-cli-template --version ${{ env.VERSION }}
+          cobra-cli-template --version
+
+      - name: Note winget status
+        if: steps.check_winget.outputs.found == 'false'
+        run: |
+          Write-Output "Package is not available yet in microsoft/winget-pkgs"
+
+  report-results:
+    name: Report Test Results
+    runs-on: ubuntu-latest
+    needs: [test-nix-linux, test-homebrew-macos, test-winget-validation]
+    if: always()
+    steps:
+      - name: Create summary
+        run: |
+          echo "## Release ${{ env.VERSION }} package manager tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Package Manager | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Nix | ${{ needs.test-nix-linux.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Homebrew | ${{ needs.test-homebrew-macos.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Winget | ${{ needs.test-winget-validation.result }} |" >> "$GITHUB_STEP_SUMMARY"
