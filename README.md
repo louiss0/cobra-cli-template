@@ -30,6 +30,14 @@ ginkgo run ./...
 ginkgo watch ./...
 ```
 
+## Rename Template Project
+
+```sh
+go run ./scripts/rename-project -project-name my-cli -module-path github.com/louiss0/my-cli
+```
+
+`-module-path` is optional and defaults to `github.com/louiss0/<project-name>`.
+
 ## Add Commands
 
 1. Add a file in `cmd/`.
