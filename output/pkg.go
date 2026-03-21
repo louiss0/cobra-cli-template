@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -32,4 +33,13 @@ func WriteModeAwareOutput(command *cobra.Command, message string, keyvals ...any
 	}
 
 	return nil
+}
+
+func WriteJSONOutput(command *cobra.Command, value any) error {
+	content, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("encode output: %w", err)
+	}
+
+	return WriteModeAwareOutput(command, string(content))
 }

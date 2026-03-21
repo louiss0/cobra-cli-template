@@ -89,6 +89,7 @@ var _ = Describe("Root Command", func() {
 		assert.NoError(err)
 		assert.Contains(output, "\"title\":\"Write docs\"")
 		assert.Contains(output, "\"description\":\"Document the create flow\"")
+		assert.Contains(output, "\"completed\":\"incomplete\"")
 	})
 
 	It("lists complete and incomplete tasks separately", func() {
@@ -137,5 +138,76 @@ var _ = Describe("Root Command", func() {
 		assert.NoError(err)
 		assert.Len(listedTasks, 1)
 		assert.Equal("complete", listedTasks[0]["completed"])
+	})
+
+	It("updates a selected task when no id is provided", func() {
+		dataDir := GinkgoT().TempDir()
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      func() string { return "task-1" },
+		})
+
+		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(command, "--data-dir", dataDir, "auth", "signin", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(
+			command,
+			"--data-dir", dataDir,
+			"task", "create",
+			"--title", "Write tests",
+			"--description", "Cover selection flow",
+		)
+		assert.NoError(err)
+
+		output, err := executeCmdWithInput(
+			command,
+			"1\n",
+			"--data-dir", dataDir,
+			"task", "update",
+			"--completed", "true",
+		)
+		assert.NoError(err)
+		assert.Contains(output, "\"id\":\"task-1\"")
+		assert.Contains(output, "\"completed\":\"complete\"")
+	})
+
+	It("deletes a selected task when no id is provided", func() {
+		dataDir := GinkgoT().TempDir()
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      func() string { return "task-1" },
+		})
+
+		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(command, "--data-dir", dataDir, "auth", "signin", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(
+			command,
+			"--data-dir", dataDir,
+			"task", "create",
+			"--title", "Write docs",
+			"--description", "Cover delete selection flow",
+		)
+		assert.NoError(err)
+
+		output, err := executeCmdWithInput(
+			command,
+			"1\n",
+			"--data-dir", dataDir,
+			"task", "delete",
+		)
+		assert.NoError(err)
+		assert.Contains(output, "\"status\":\"deleted\"")
+		assert.Contains(output, "\"id\":\"task-1\"")
 	})
 })

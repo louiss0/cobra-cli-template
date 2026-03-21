@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/louiss0/cobra-cli-template/output"
@@ -41,7 +40,7 @@ func NewRegisterCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, map[string]string{
+			return output.WriteJSONOutput(cmd, map[string]string{
 				"status":   "registered",
 				"username": username,
 			})
@@ -61,7 +60,7 @@ func NewSignInCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, map[string]string{
+			return output.WriteJSONOutput(cmd, map[string]string{
 				"status":   "signed-in",
 				"username": username,
 			})
@@ -80,7 +79,7 @@ func NewSignOutCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, map[string]string{
+			return output.WriteJSONOutput(cmd, map[string]string{
 				"status": "signed-out",
 			})
 		},
@@ -98,7 +97,7 @@ func NewWhoAmICmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, map[string]string{
+			return output.WriteJSONOutput(cmd, map[string]string{
 				"username": username,
 			})
 		},
@@ -115,13 +114,4 @@ func usernameArgs(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-func writeJSONOutput(cmd *cobra.Command, value any) error {
-	content, err := json.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("encode output: %w", err)
-	}
-
-	return output.WriteModeAwareOutput(cmd, string(content))
 }

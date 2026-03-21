@@ -39,6 +39,19 @@ var _ = Describe("WriteModeAwareOutput", func() {
 		assert.Equal("", stderr.String())
 	})
 
+	It("writes json values to stdout in development mode", func() {
+		if !mode.NewModeOperator().IsDevelopmentMode() {
+			Skip("requires development mode")
+		}
+
+		err := output.WriteJSONOutput(command, map[string]string{
+			"status": "ok",
+		})
+
+		assert.NoError(err)
+		assert.Equal("{\"status\":\"ok\"}", stdout.String())
+	})
+
 	It("writes message and keyvals to stderr in production mode", func() {
 		if !mode.NewModeOperator().IsProductionMode() {
 			Skip("requires production mode")

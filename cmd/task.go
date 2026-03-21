@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/louiss0/cobra-cli-template/custom_flags"
+	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/tasks"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -40,7 +43,6 @@ func NewCreateCmd() *cobra.Command {
 		Title       string
 		Description string
 	}{}
-	completedFlag := custom_flags.NewBoolFlag("completed")
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -60,19 +62,17 @@ func NewCreateCmd() *cobra.Command {
 			task, err := getTaskStoreFromCommandContext(cmd).Create(username, tasks.CreateTaskInput{
 				Title:       title,
 				Description: description,
-				Completed:   completedFlag.Value(),
 			})
 			if err != nil {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.PresentTask(task))
+			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
 		},
 	}
 
 	cmd.Flags().StringVar(&flags.Title, "title", "", "Task title.")
 	cmd.Flags().StringVar(&flags.Description, "description", "", "Task description.")
-	cmd.Flags().Var(&completedFlag, "completed", "Create the task as complete.")
 
 	return cmd
 }
@@ -104,7 +104,7 @@ func NewListCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.PresentTasks(taskList))
+			return output.WriteJSONOutput(cmd, tasks.PresentTasks(taskList))
 		},
 	}
 
@@ -129,7 +129,7 @@ func NewGetCmd() *cobra.Command {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.PresentTask(task))
+			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
 		},
 	}
 }
@@ -142,10 +142,10 @@ func NewUpdateCmd() *cobra.Command {
 	completedFlag := custom_flags.NewBoolFlag("completed")
 
 	cmd := &cobra.Command{
-		Use:   "update <task-id>",
+		Use:   "update [task-id]",
 		Short: "Update an existing task",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
 				return err
 			}
 
@@ -157,6 +157,11 @@ func NewUpdateCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			taskID, err := resolveTaskIDForAction(cmd, username, args, "update")
 			if err != nil {
 				return err
 			}
@@ -175,12 +180,12 @@ func NewUpdateCmd() *cobra.Command {
 				updateInput.Completed = tasks.OptionalBool(completedFlag.Value())
 			}
 
-			task, err := getTaskStoreFromCommandContext(cmd).Update(username, args[0], updateInput)
+			task, err := getTaskStoreFromCommandContext(cmd).Update(username, taskID, updateInput)
 			if err != nil {
 				return err
 			}
 
-			return writeJSONOutput(cmd, tasks.PresentTask(task))
+			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
 		},
 	}
 
@@ -193,23 +198,28 @@ func NewUpdateCmd() *cobra.Command {
 
 func NewDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <task-id>",
+		Use:   "delete [task-id]",
 		Short: "Delete a task",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
 			}
 
-			err = getTaskStoreFromCommandContext(cmd).Delete(username, args[0])
+			taskID, err := resolveTaskIDForAction(cmd, username, args, "delete")
 			if err != nil {
 				return err
 			}
 
-			return writeJSONOutput(cmd, map[string]string{
+			err = getTaskStoreFromCommandContext(cmd).Delete(username, taskID)
+			if err != nil {
+				return err
+			}
+
+			return output.WriteJSONOutput(cmd, map[string]string{
 				"status": "deleted",
-				"id":     args[0],
+				"id":     taskID,
 			})
 		},
 	}
@@ -274,26 +284,6 @@ func requiredText(name string) func(string) error {
 	}
 }
 
-func runRequiredInput(cmd *cobra.Command, reader *bufio.Reader, title string, description string, fieldName string, currentValue string) (string, error) {
-	if strings.TrimSpace(currentValue) != "" {
-		return currentValue, nil
-	}
-
-	value := currentValue
-	field := huh.NewInput().
-		Title(title).
-		Description(description).
-		Value(&value).
-		Validate(requiredText(fieldName))
-
-	err := field.RunAccessible(cmd.ErrOrStderr(), reader)
-	if err != nil {
-		return "", fmt.Errorf("run %s input: %w", fieldName, err)
-	}
-
-	return value, nil
-}
-
 func runPromptInput(cmd *cobra.Command, reader *bufio.Reader, label string, currentValue string) (string, error) {
 	if strings.TrimSpace(currentValue) != "" {
 		return currentValue, nil
@@ -315,6 +305,79 @@ func runPromptInput(cmd *cobra.Command, reader *bufio.Reader, label string, curr
 	}
 
 	return value, nil
+}
+
+func resolveTaskIDForAction(cmd *cobra.Command, username string, args []string, action string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+
+	taskList, err := getTaskStoreFromCommandContext(cmd).List(username, tasks.ListFilterAll)
+	if err != nil {
+		return "", err
+	}
+
+	if len(taskList) == 0 {
+		return "", fmt.Errorf("no tasks available to %s", action)
+	}
+
+	if shouldUseInteractiveForm(cmd.InOrStdin()) {
+		return selectTaskIDInteractive(taskList, action)
+	}
+
+	return selectTaskIDFromPrompt(cmd, taskList, action)
+}
+
+func selectTaskIDInteractive(taskList []tasks.Task, action string) (string, error) {
+	selectedTaskID := taskList[0].ID
+	options := lo.Map(taskList, func(task tasks.Task, _ int) huh.Option[string] {
+		return huh.NewOption(taskSelectionLabel(task), task.ID)
+	})
+
+	err := huh.NewSelect[string]().
+		Title(actionTitle(action) + " Task").
+		Description("Choose a task by title and ID.").
+		Options(options...).
+		Value(&selectedTaskID).
+		Run()
+	if err != nil {
+		return "", fmt.Errorf("select task to %s: %w", action, err)
+	}
+
+	return selectedTaskID, nil
+}
+
+func selectTaskIDFromPrompt(cmd *cobra.Command, taskList []tasks.Task, action string) (string, error) {
+	reader := bufio.NewReader(cmd.InOrStdin())
+
+	_, err := fmt.Fprintf(cmd.ErrOrStderr(), "Select a task to %s:\n", action)
+	if err != nil {
+		return "", fmt.Errorf("write %s prompt: %w", action, err)
+	}
+
+	for index, task := range taskList {
+		_, err = fmt.Fprintf(cmd.ErrOrStderr(), "%d. %s\n", index+1, taskSelectionLabel(task))
+		if err != nil {
+			return "", fmt.Errorf("write task list: %w", err)
+		}
+	}
+
+	_, err = fmt.Fprint(cmd.ErrOrStderr(), "Choice: ")
+	if err != nil {
+		return "", fmt.Errorf("write choice prompt: %w", err)
+	}
+
+	choiceValue, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("read choice: %w", err)
+	}
+
+	choiceNumber, err := strconv.Atoi(strings.TrimSpace(choiceValue))
+	if err != nil || choiceNumber < 1 || choiceNumber > len(taskList) {
+		return "", fmt.Errorf("choice must be between 1 and %d", len(taskList))
+	}
+
+	return taskList[choiceNumber-1].ID, nil
 }
 
 func shouldUseInteractiveForm(reader io.Reader) bool {
@@ -341,4 +404,16 @@ func parseListFilter(value string) (tasks.ListFilter, error) {
 
 func lower(value string) string {
 	return strings.ToLower(value)
+}
+
+func taskSelectionLabel(task tasks.Task) string {
+	return fmt.Sprintf("%s [%s]", task.Title, task.ID)
+}
+
+func actionTitle(action string) string {
+	if action == "" {
+		return ""
+	}
+
+	return strings.ToUpper(action[:1]) + action[1:]
 }
