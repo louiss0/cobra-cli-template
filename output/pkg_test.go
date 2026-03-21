@@ -2,8 +2,8 @@ package output_test
 
 import (
 	"bytes"
+	"errors"
 
-	"github.com/charmbracelet/log"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/g-tools/mode"
 	. "github.com/onsi/ginkgo/v2"
@@ -39,21 +39,64 @@ var _ = Describe("WriteModeAwareOutput", func() {
 		assert.Equal("", stderr.String())
 	})
 
-	It("writes message and keyvals to stderr in production mode", func() {
+	It("writes json values to stdout in development mode", func() {
+		if !mode.NewModeOperator().IsDevelopmentMode() {
+			Skip("requires development mode")
+		}
+
+		err := output.WriteJSONOutput(command, map[string]string{
+			"status": "ok",
+		})
+
+		assert.NoError(err)
+		assert.Equal("{\"status\":\"ok\"}", stdout.String())
+	})
+
+	It("writes json values to stdout in production mode", func() {
 		if !mode.NewModeOperator().IsProductionMode() {
 			Skip("requires production mode")
 		}
 
-		originalLogger := log.Default()
-		testLogger := log.New(stderr)
-		log.SetDefault(testLogger)
-		defer log.SetDefault(originalLogger)
+		err := output.WriteJSONOutput(command, map[string]string{
+			"status": "ok",
+		})
+
+		assert.NoError(err)
+		assert.Contains(stdout.String(), "{\n")
+		assert.Contains(stdout.String(), "  \"status\": \"ok\"\n")
+		assert.Contains(stdout.String(), "}\n")
+		assert.Equal("", stderr.String())
+	})
+
+	It("writes message and keyvals to stdout in production mode", func() {
+		if !mode.NewModeOperator().IsProductionMode() {
+			Skip("requires production mode")
+		}
 
 		err := output.WriteModeAwareOutput(command, "prod message", "source", "test")
 
 		assert.NoError(err)
-		assert.Equal("", stdout.String())
-		assert.Contains(stderr.String(), "prod message")
-		assert.Contains(stderr.String(), "source=test")
+		assert.Contains(stdout.String(), "prod message")
+		assert.Contains(stdout.String(), "source=test")
+		assert.Equal("", stderr.String())
+	})
+})
+
+var _ = Describe("WriteModeAwareError", func() {
+	var (
+		stderr *bytes.Buffer
+	)
+
+	BeforeEach(func() {
+		stderr = new(bytes.Buffer)
+	})
+
+	It("writes structured errors with log in all modes", func() {
+		expectedErr := errors.New("command failure")
+		err := output.WriteModeAwareError(stderr, expectedErr)
+
+		assert.NoError(err)
+		assert.Contains(stderr.String(), "command failed")
+		assert.Contains(stderr.String(), expectedErr.Error())
 	})
 })
