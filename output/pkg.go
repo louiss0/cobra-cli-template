@@ -3,6 +3,7 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -15,7 +16,8 @@ var modeOperator = mode.NewModeOperator()
 
 func WriteModeAwareOutput(command *cobra.Command, message string, keyvals ...any) error {
 	if modeOperator.IsProductionMode() {
-		log.Info(message, keyvals...)
+		logger := log.New(command.OutOrStdout())
+		logger.Info(message, keyvals...)
 		return nil
 	}
 
@@ -41,5 +43,20 @@ func WriteJSONOutput(command *cobra.Command, value any) error {
 		return fmt.Errorf("encode output: %w", err)
 	}
 
-	return WriteModeAwareOutput(command, string(content))
+	_, err = fmt.Fprint(command.OutOrStdout(), string(content))
+	if err != nil {
+		return fmt.Errorf("write json output: %w", err)
+	}
+
+	return nil
+}
+
+func WriteModeAwareError(stderr io.Writer, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	logger := log.New(stderr)
+	logger.Error("command failed", "error", err)
+	return nil
 }

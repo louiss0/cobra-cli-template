@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/louiss0/cobra-cli-template/cmd"
+	"github.com/louiss0/cobra-cli-template/output"
 )
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		_ = output.WriteModeAwareError(os.Stderr, err)
 		os.Exit(1)
 	}
 }
