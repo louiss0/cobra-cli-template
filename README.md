@@ -33,10 +33,17 @@ ginkgo watch ./...
 ## Rename Template Project
 
 ```sh
-go run ./scripts/rename-project -project-name my-cli -module-path github.com/louiss0/my-cli
+go run ./scripts/rename-project
 ```
 
-`-module-path` is optional and defaults to `github.com/louiss0/<project-name>`.
+The script infers the new project name from the folder you run it in.
+
+```sh
+go run ./scripts/rename-project -project-name my-cli
+```
+
+`-module-path` is optional. If omitted, it infers your current module from
+`go.mod` and swaps only the last path segment to `<project-name>`.
 
 ## Add Commands
 
