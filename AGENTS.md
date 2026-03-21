@@ -24,12 +24,6 @@ To generate coverage for every package use:
 ginkgo -r --cover --output-dir coverage --keep-separate-coverprofiles
 ```
 
-To regenerate just the `cmd` coverage file use:
-
-```sh
-ginkgo -r --cover --output-dir coverage --keep-separate-coverprofiles --skip-package auth,custom_errors,custom_flags,output,tasks,validation
-```
-
 
 ## How to develop commands! 
 
