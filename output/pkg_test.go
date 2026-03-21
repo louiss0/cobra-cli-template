@@ -62,7 +62,9 @@ var _ = Describe("WriteModeAwareOutput", func() {
 		})
 
 		assert.NoError(err)
-		assert.Equal("{\"status\":\"ok\"}", stdout.String())
+		assert.Contains(stdout.String(), "{\n")
+		assert.Contains(stdout.String(), "  \"status\": \"ok\"\n")
+		assert.Contains(stdout.String(), "}\n")
 		assert.Equal("", stderr.String())
 	})
 

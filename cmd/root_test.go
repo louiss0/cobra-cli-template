@@ -92,7 +92,10 @@ var _ = Describe("Root Command", func() {
 		output, err := executeCmd(command, "--data-dir", dataDir, "auth", "whoami")
 
 		assert.NoError(err)
-		assert.Contains(output, "\"username\":\"alice\"")
+		var whoAmI map[string]any
+		err = json.Unmarshal([]byte(output), &whoAmI)
+		assert.NoError(err)
+		assert.Equal("alice", whoAmI["username"])
 	})
 
 	It("creates tasks from prompts when flags are omitted", func() {
@@ -118,9 +121,12 @@ var _ = Describe("Root Command", func() {
 		)
 
 		assert.NoError(err)
-		assert.Contains(output, "\"title\":\"Write docs\"")
-		assert.Contains(output, "\"description\":\"Document the create flow\"")
-		assert.Contains(output, "\"completed\":\"incomplete\"")
+		var createdTask map[string]any
+		err = json.Unmarshal([]byte(output), &createdTask)
+		assert.NoError(err)
+		assert.Equal("Write docs", createdTask["title"])
+		assert.Equal("Document the create flow", createdTask["description"])
+		assert.Equal("incomplete", createdTask["completed"])
 	})
 
 	It("lists complete and incomplete tasks separately", func() {
@@ -203,8 +209,11 @@ var _ = Describe("Root Command", func() {
 			"--completed", "true",
 		)
 		assert.NoError(err)
-		assert.Contains(output, "\"id\":\"task-1\"")
-		assert.Contains(output, "\"completed\":\"complete\"")
+		var updatedTask map[string]any
+		err = json.Unmarshal([]byte(output), &updatedTask)
+		assert.NoError(err)
+		assert.Equal("task-1", updatedTask["id"])
+		assert.Equal("complete", updatedTask["completed"])
 	})
 
 	It("shows a clear flag message when update has no changes", func() {
@@ -274,10 +283,13 @@ var _ = Describe("Root Command", func() {
 			"update",
 		)
 		assert.NoError(err)
-		assert.Contains(output, "\"id\":\"task-1\"")
-		assert.Contains(output, "\"title\":\"Write better tests\"")
-		assert.Contains(output, "\"description\":\"Cover form update flow\"")
-		assert.Contains(output, "\"completed\":\"complete\"")
+		var updatedTask map[string]any
+		err = json.Unmarshal([]byte(output), &updatedTask)
+		assert.NoError(err)
+		assert.Equal("task-1", updatedTask["id"])
+		assert.Equal("Write better tests", updatedTask["title"])
+		assert.Equal("Cover form update flow", updatedTask["description"])
+		assert.Equal("complete", updatedTask["completed"])
 	})
 
 	It("shows allowed status values for list filtering", func() {
@@ -333,7 +345,10 @@ var _ = Describe("Root Command", func() {
 			"delete",
 		)
 		assert.NoError(err)
-		assert.Contains(output, "\"status\":\"deleted\"")
-		assert.Contains(output, "\"id\":\"task-1\"")
+		var deletedTask map[string]any
+		err = json.Unmarshal([]byte(output), &deletedTask)
+		assert.NoError(err)
+		assert.Equal("deleted", deletedTask["status"])
+		assert.Equal("task-1", deletedTask["id"])
 	})
 })

@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/louiss0/g-tools/mode"
+	"github.com/neilotoole/jsoncolor"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,20 @@ func WriteModeAwareOutput(command *cobra.Command, message string, keyvals ...any
 }
 
 func WriteJSONOutput(command *cobra.Command, value any) error {
+	if modeOperator.IsProductionMode() {
+		encoder := jsoncolor.NewEncoder(command.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		if jsoncolor.IsColorTerminal(command.OutOrStdout()) {
+			encoder.SetColors(jsoncolor.DefaultColors())
+		}
+
+		if err := encoder.Encode(value); err != nil {
+			return fmt.Errorf("encode output: %w", err)
+		}
+
+		return nil
+	}
+
 	content, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("encode output: %w", err)
@@ -45,7 +60,7 @@ func WriteJSONOutput(command *cobra.Command, value any) error {
 
 	_, err = fmt.Fprint(command.OutOrStdout(), string(content))
 	if err != nil {
-		return fmt.Errorf("write json output: %w", err)
+		return fmt.Errorf("write development json output: %w", err)
 	}
 
 	return nil
