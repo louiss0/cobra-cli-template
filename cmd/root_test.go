@@ -231,11 +231,53 @@ var _ = Describe("Root Command", func() {
 		)
 		assert.NoError(err)
 
-		_, err = executeCmd(command, "--data-dir", dataDir, "update", "task-1")
+		_, err = executeCmdWithInput(
+			command,
+			"\n\n\n",
+			"--data-dir", dataDir,
+			"update", "task-1",
+		)
 
 		assert.Error(err)
-		assert.Contains(err.Error(), "invalid argument: provide at least one flag to update")
+		assert.Contains(err.Error(), "invalid argument: provide at least one value to update")
 		assert.Contains(err.Error(), "task-list update [task-id] --help")
+	})
+
+	It("updates a selected task with form values when no id and flags are provided", func() {
+		dataDir := GinkgoT().TempDir()
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      func() string { return "task-1" },
+		})
+
+		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(command, "--data-dir", dataDir, "auth", "signin", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(
+			command,
+			"--data-dir", dataDir,
+			"create",
+			"--title", "Write tests",
+			"--description", "Cover update form flow",
+		)
+		assert.NoError(err)
+
+		output, err := executeCmdWithInput(
+			command,
+			"1\nWrite better tests\nCover form update flow\ntrue\n",
+			"--data-dir", dataDir,
+			"update",
+		)
+		assert.NoError(err)
+		assert.Contains(output, "\"id\":\"task-1\"")
+		assert.Contains(output, "\"title\":\"Write better tests\"")
+		assert.Contains(output, "\"description\":\"Cover form update flow\"")
+		assert.Contains(output, "\"completed\":\"complete\"")
 	})
 
 	It("shows allowed status values for list filtering", func() {

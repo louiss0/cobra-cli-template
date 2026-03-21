@@ -128,41 +128,35 @@ func NewUpdateCmd() *cobra.Command {
 		Short:   "Update an existing task",
 		GroupID: "task",
 		Args: custom_errors.WrapArgs(func(cmd *cobra.Command, args []string) error {
-			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
-				return err
-			}
-
-			if !cmd.Flags().Changed("title") && !cmd.Flags().Changed("description") && !cmd.Flags().Changed("completed") {
-				return custom_errors.CreateInvalidArgumentErrorWithMessage(
-					"provide at least one flag to update",
-				)
-			}
-
-			return nil
+			return cobra.MaximumNArgs(1)(cmd, args)
 		}),
 		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
+			var promptReader *bufio.Reader
+			if !shouldUseInteractiveForm(cmd.InOrStdin()) {
+				promptReader = bufio.NewReader(cmd.InOrStdin())
+			}
+
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
 			}
 
-			taskID, err := resolveTaskIDForAction(cmd, username, args, "update")
+			taskID, err := resolveTaskIDForActionWithReader(cmd, username, args, "update", promptReader)
 			if err != nil {
 				return err
 			}
 
-			updateInput := tasks.UpdateTaskInput{}
-
-			if cmd.Flags().Changed("title") {
-				updateInput.Title = &flags.Title
-			}
-
-			if cmd.Flags().Changed("description") {
-				updateInput.Description = &flags.Description
-			}
-
-			if cmd.Flags().Changed("completed") {
-				updateInput.Completed = tasks.OptionalBool(completedFlag.Value())
+			updateInput, err := resolveUpdateInput(
+				cmd,
+				username,
+				taskID,
+				flags.Title,
+				flags.Description,
+				completedFlag.Value(),
+				promptReader,
+			)
+			if err != nil {
+				return err
 			}
 
 			task, err := getTaskStoreFromCommandContext(cmd).Update(username, taskID, updateInput)
@@ -179,6 +173,45 @@ func NewUpdateCmd() *cobra.Command {
 	cmd.Flags().Var(&completedFlag, "completed", "Set the completion state.")
 
 	return cmd
+}
+
+func resolveUpdateInput(
+	cmd *cobra.Command,
+	username string,
+	taskID string,
+	title string,
+	description string,
+	completed bool,
+	promptReader *bufio.Reader,
+) (tasks.UpdateTaskInput, error) {
+	updateInput := tasks.UpdateTaskInput{}
+	hasFlagUpdates := false
+
+	if cmd.Flags().Changed("title") {
+		updateInput.Title = &title
+		hasFlagUpdates = true
+	}
+
+	if cmd.Flags().Changed("description") {
+		updateInput.Description = &description
+		hasFlagUpdates = true
+	}
+
+	if cmd.Flags().Changed("completed") {
+		updateInput.Completed = tasks.OptionalBool(completed)
+		hasFlagUpdates = true
+	}
+
+	if hasFlagUpdates {
+		return updateInput, nil
+	}
+
+	task, err := getTaskStoreFromCommandContext(cmd).Get(username, taskID)
+	if err != nil {
+		return tasks.UpdateTaskInput{}, err
+	}
+
+	return runUpdateTaskForm(cmd, task, promptReader)
 }
 
 func NewDeleteCmd() *cobra.Command {
@@ -244,6 +277,96 @@ func runInteractiveCreateTaskForm(cmd *cobra.Command, currentTitle string, curre
 	return title, description, nil
 }
 
+func runUpdateTaskForm(cmd *cobra.Command, task tasks.Task, promptReader *bufio.Reader) (tasks.UpdateTaskInput, error) {
+	if shouldUseInteractiveForm(cmd.InOrStdin()) {
+		return runInteractiveUpdateTaskForm(task)
+	}
+
+	return runPromptUpdateTaskForm(cmd, task, promptReader)
+}
+
+func runInteractiveUpdateTaskForm(task tasks.Task) (tasks.UpdateTaskInput, error) {
+	title := task.Title
+	description := task.Description
+	completed := task.Completed
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Title").
+				Description("Update the task title.").
+				Value(&title).
+				Validate(requiredText("title")),
+			huh.NewInput().
+				Title("Description").
+				Description("Update the task description.").
+				Value(&description).
+				Validate(requiredText("description")),
+			huh.NewConfirm().
+				Title("Completed").
+				Description("Mark the task as completed.").
+				Value(&completed),
+		).Title("Update Task"),
+	).Run()
+	if err != nil {
+		return tasks.UpdateTaskInput{}, fmt.Errorf("run task update form: %w", err)
+	}
+
+	return createUpdateInputFromTaskDiff(task, title, description, completed)
+}
+
+func runPromptUpdateTaskForm(cmd *cobra.Command, task tasks.Task, reader *bufio.Reader) (tasks.UpdateTaskInput, error) {
+	title, err := runPromptOptionalInput(cmd, reader, "Title", task.Title)
+	if err != nil {
+		return tasks.UpdateTaskInput{}, err
+	}
+
+	description, err := runPromptOptionalInput(cmd, reader, "Description", task.Description)
+	if err != nil {
+		return tasks.UpdateTaskInput{}, err
+	}
+
+	completed, err := runPromptOptionalBoolInput(cmd, reader, "Completed", task.Completed)
+	if err != nil {
+		return tasks.UpdateTaskInput{}, err
+	}
+
+	return createUpdateInputFromTaskDiff(task, title, description, completed)
+}
+
+func createUpdateInputFromTaskDiff(
+	task tasks.Task,
+	title string,
+	description string,
+	completed bool,
+) (tasks.UpdateTaskInput, error) {
+	updateInput := tasks.UpdateTaskInput{}
+	changedCount := 0
+
+	if title != task.Title {
+		updateInput.Title = &title
+		changedCount++
+	}
+
+	if description != task.Description {
+		updateInput.Description = &description
+		changedCount++
+	}
+
+	if completed != task.Completed {
+		updateInput.Completed = tasks.OptionalBool(completed)
+		changedCount++
+	}
+
+	if changedCount == 0 {
+		return tasks.UpdateTaskInput{}, custom_errors.CreateInvalidArgumentErrorWithMessage(
+			"provide at least one value to update",
+		)
+	}
+
+	return updateInput, nil
+}
+
 func runPromptCreateTaskForm(cmd *cobra.Command, currentTitle string, currentDescription string) (string, string, error) {
 	reader := bufio.NewReader(cmd.InOrStdin())
 
@@ -293,7 +416,66 @@ func runPromptInput(cmd *cobra.Command, reader *bufio.Reader, label string, curr
 	return value, nil
 }
 
+func runPromptOptionalInput(cmd *cobra.Command, reader *bufio.Reader, label string, currentValue string) (string, error) {
+	_, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s [%s]: ", label, currentValue)
+	if err != nil {
+		return "", fmt.Errorf("write %s prompt: %w", strings.ToLower(label), err)
+	}
+
+	value, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", strings.ToLower(label), err)
+	}
+
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return currentValue, nil
+	}
+
+	if err := requiredText(strings.ToLower(label))(value); err != nil {
+		return "", err
+	}
+
+	return value, nil
+}
+
+func runPromptOptionalBoolInput(cmd *cobra.Command, reader *bufio.Reader, label string, currentValue bool) (bool, error) {
+	_, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s (true/false) [%t]: ", label, currentValue)
+	if err != nil {
+		return false, fmt.Errorf("write %s prompt: %w", strings.ToLower(label), err)
+	}
+
+	value, err := reader.ReadString('\n')
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", strings.ToLower(label), err)
+	}
+
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return currentValue, nil
+	}
+
+	parsedValue, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, custom_errors.CreateInvalidArgumentErrorWithMessage(
+			fmt.Sprintf("%s must be true or false", strings.ToLower(label)),
+		)
+	}
+
+	return parsedValue, nil
+}
+
 func resolveTaskIDForAction(cmd *cobra.Command, username string, args []string, action string) (string, error) {
+	return resolveTaskIDForActionWithReader(cmd, username, args, action, nil)
+}
+
+func resolveTaskIDForActionWithReader(
+	cmd *cobra.Command,
+	username string,
+	args []string,
+	action string,
+	reader *bufio.Reader,
+) (string, error) {
 	if len(args) == 1 {
 		return args[0], nil
 	}
@@ -311,7 +493,11 @@ func resolveTaskIDForAction(cmd *cobra.Command, username string, args []string, 
 		return selectTaskIDInteractive(taskList, action)
 	}
 
-	return selectTaskIDFromPrompt(cmd, taskList, action)
+	if reader == nil {
+		reader = bufio.NewReader(cmd.InOrStdin())
+	}
+
+	return selectTaskIDFromPrompt(cmd, reader, taskList, action)
 }
 
 func selectTaskIDInteractive(taskList []tasks.Task, action string) (string, error) {
@@ -333,9 +519,7 @@ func selectTaskIDInteractive(taskList []tasks.Task, action string) (string, erro
 	return selectedTaskID, nil
 }
 
-func selectTaskIDFromPrompt(cmd *cobra.Command, taskList []tasks.Task, action string) (string, error) {
-	reader := bufio.NewReader(cmd.InOrStdin())
-
+func selectTaskIDFromPrompt(cmd *cobra.Command, reader *bufio.Reader, taskList []tasks.Task, action string) (string, error) {
 	_, err := fmt.Fprintf(cmd.ErrOrStderr(), "Select a task to %s:\n", action)
 	if err != nil {
 		return "", fmt.Errorf("write %s prompt: %w", action, err)
