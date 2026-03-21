@@ -1,53 +1,84 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
 version: 2
-
-before:
-  hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
+project_name: cobra-cli-template
 
 builds:
-  - env:
-      - CGO_ENABLED=0
+  - id: cobra-cli-template
+    main: ./main.go
+    binary: cobra-cli-template
     goos:
       - linux
-      - windows
       - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X {{ .ModulePath }}/build_info.rawCLI_VERSION={{ .Version }}
+      - -X {{ .ModulePath }}/build_info.rawBUILD_DATE={{ .Date }}
+      - -X github.com/louiss0/g-tools/mode.buildMode=production
 
 archives:
   - formats: [tar.gz]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats: [zip]
 
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
 
 release:
-  footer: >-
+  github:
+    owner: louiss0
+    name: cobra-cli-template
 
-    ---
+winget:
+  - name: cobra-cli-template
+    publisher: the-code-fixer-23
+    short_description: "Template for building Go CLIs with Cobra and Ginkgo."
+    homepage: "https://github.com/louiss0/cobra-cli-template"
+    license: MIT
+    publisher_url: "https://github.com/louiss0"
+    publisher_support_url: "https://github.com/louiss0/cobra-cli-template/issues/new"
+    package_identifier: the-code-fixer-23.cobra-cli-template
+    path: manifests/t/the-code-fixer-23/cobra-cli-template/{{ .Version }}
+    commit_msg_template: "{{ .PackageIdentifier }}: {{ .Tag }}"
+    release_notes: "{{.Changelog}}"
+    repository:
+      owner: louiss0
+      name: winget-pkgs
+      branch: "cobra-cli-template-{{ .Version }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
 
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+homebrew_casks:
+  - name: cobra-cli-template
+    binaries:
+      - cobra-cli-template
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: "https://github.com/louiss0/cobra-cli-template"
+    description: "Template for building Go CLIs with Cobra and Ginkgo."
+    repository:
+      owner: louiss0
+      name: homebrew-the-code-fixer-23
+      branch: main
+
+nix:
+  - name: cobra-cli-template
+    commit_msg_template: "{{ .ProjectName }}: {{ .Tag }}"
+    path: "pkgs/{{ .ProjectName }}/default.nix"
+    homepage: "https://github.com/louiss0/cobra-cli-template"
+    description: "Template for building Go CLIs with Cobra and Ginkgo."
+    license: mit
+    repository:
+      owner: louiss0
+      name: the-code-fixer-23-nur
+      branch: main

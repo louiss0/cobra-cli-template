@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/louiss0/cobra-cli-template/build_info"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/validation"
 	"github.com/spf13/cobra"
@@ -41,6 +42,7 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 		Long: `A starter template for building maintainable Cobra applications.
 The template is organized for test-driven development using Ginkgo and
 Testify assertions.`,
+		Version: build_info.Version(),
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
