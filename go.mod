@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/log v1.0.0
 	github.com/kaptinlin/gozod v0.9.0
 	github.com/louiss0/g-tools v1.0.2
+	github.com/neilotoole/jsoncolor v0.7.2
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/samber/lo v1.53.0
 	github.com/spf13/cobra v1.9.1
@@ -50,7 +51,6 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/neilotoole/jsoncolor v0.7.2 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
