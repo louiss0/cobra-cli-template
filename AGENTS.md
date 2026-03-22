@@ -184,7 +184,6 @@ can drift from compile-time intent.
 - Use `gozod.FromStruct[T]()` when validating typed dependency/config structs.
 - Use the `validation.NewFunctionValuesStructSchema[T]()` helper when a struct
   is expected to only contain function fields and all functions must be set.
-- Prefer schema-level `.Check(...)` for cross-field rules and for building
-  messages that list missing dependencies.
+- Use `.Check(...)` as a last resort when no built in methods suffice.
 - Keep per-command argument validation in Cobra `Args` functions and reserve
   goZod for internal runtime contracts and dependency shape checks.
