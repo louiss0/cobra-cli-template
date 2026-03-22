@@ -7,6 +7,9 @@ A template for building Go CLIs with Cobra using a test-first workflow.
 - CLI framework: `spf13/cobra`
 - Test runner: `onsi/ginkgo`
 - Assertions: `stretchr/testify/assert`
+- Utility: `samber/lo`
+- Validation: `kaptinlin/gozod`
+- Mode Management: `louiss0/g-tools/mode` 
 
 ## Create a Project
 
