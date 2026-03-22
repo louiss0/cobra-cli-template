@@ -19,20 +19,15 @@ type taskListItem struct {
 }
 
 func (item taskListItem) FilterValue() string {
-	return fmt.Sprintf("%s %s", item.task.Title, item.task.Description)
+	return fmt.Sprintf("%s %s %s", item.task.ID, item.task.Title, item.task.Description)
 }
 
 func (item taskListItem) Title() string {
-	status := "incomplete"
-	if item.task.Completed {
-		status = "complete"
-	}
-
-	return fmt.Sprintf("%s [%s]", item.task.Title, status)
+	return item.task.Title
 }
 
 func (item taskListItem) Description() string {
-	return fmt.Sprintf("%s (id: %s)", item.task.Description, item.task.ID)
+	return item.task.Description
 }
 
 type taskListModel struct {
@@ -72,9 +67,18 @@ func (model taskListModel) View() string {
 }
 
 func runTaskListUI(cmd *cobra.Command, taskList []tasks.Task) error {
-	_, err := runTaskListSelection(cmd, "Tasks", buildTaskItems(taskList))
+	selection, err := runTaskListSelection(cmd, "Tasks", buildTaskItems(taskList))
 	if err != nil {
 		return err
+	}
+
+	if selection.selectedTaskID == "" {
+		return nil
+	}
+
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), selection.selectedTaskID)
+	if err != nil {
+		return fmt.Errorf("write selected task id: %w", err)
 	}
 
 	return nil

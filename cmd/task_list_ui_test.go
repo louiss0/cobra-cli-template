@@ -47,6 +47,25 @@ var _ = Describe("Task List UI", func() {
 		assert.True(strings.Contains(view, "Write tests"))
 		assert.True(strings.Contains(view, "Cover list UI"))
 	})
+
+	It("stores the selected task id when enter is pressed", func() {
+		assert := tAssert.New(GinkgoT())
+
+		model := taskListModel{
+			list: listWithItems(
+				buildTaskItems([]tasks.Task{
+					{ID: "task-1", Title: "Write tests", Description: "Cover list UI"},
+				}),
+				defaultTaskListWidth,
+				defaultTaskListHeight,
+			),
+		}
+
+		nextModel, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+		assert.NotNil(command)
+		assert.Equal("task-1", nextModel.(taskListModel).selectedTaskID)
+	})
 })
 
 func listWithItems(items []list.Item, width int, height int) list.Model {
