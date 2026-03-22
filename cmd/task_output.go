@@ -10,7 +10,24 @@ import (
 )
 
 func writeStyledTaskOutput(cmd *cobra.Command, task tasks.Task) error {
-	content := renderStyledTask(task)
+	content := renderTaskWithStatus(task)
+	if err := writeTaskOutput(cmd, content); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeCreatedTaskOutput(cmd *cobra.Command, task tasks.Task) error {
+	content := renderTaskWithID(task)
+	if err := writeTaskOutput(cmd, content); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeTaskOutput(cmd *cobra.Command, content string) error {
 
 	_, err := fmt.Fprint(cmd.OutOrStdout(), content)
 	if err != nil {
@@ -20,7 +37,7 @@ func writeStyledTaskOutput(cmd *cobra.Command, task tasks.Task) error {
 	return nil
 }
 
-func renderStyledTask(task tasks.Task) string {
+func renderTaskWithStatus(task tasks.Task) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	descriptionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 
@@ -37,6 +54,22 @@ func renderStyledTask(task tasks.Task) string {
 	builder.WriteString(descriptionStyle.Render(task.Description))
 	builder.WriteString("\n")
 	builder.WriteString(statusStyle.Render(status))
+	builder.WriteString("\n")
+
+	return builder.String()
+}
+
+func renderTaskWithID(task tasks.Task) string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	descriptionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	idStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+
+	builder := strings.Builder{}
+	builder.WriteString(titleStyle.Render(task.Title))
+	builder.WriteString("\n")
+	builder.WriteString(descriptionStyle.Render(task.Description))
+	builder.WriteString("\n")
+	builder.WriteString(idStyle.Render(task.ID))
 	builder.WriteString("\n")
 
 	return builder.String()

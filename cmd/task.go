@@ -50,7 +50,7 @@ func NewCreateCmd() *cobra.Command {
 				return err
 			}
 
-			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
+			return writeCreatedTaskOutput(cmd, task)
 		}),
 	}
 

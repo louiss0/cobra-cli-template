@@ -104,7 +104,7 @@ var _ = Describe("Root Command", func() {
 			NewAuthService: auth.NewService,
 			NewTaskStore:   tasks.NewStore,
 			Now:            time.Now,
-			NewTaskID:      tasks.NewTaskID,
+			NewTaskID:      func() string { return "task-1" },
 		})
 
 		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
@@ -121,12 +121,11 @@ var _ = Describe("Root Command", func() {
 		)
 
 		assert.NoError(err)
-		var createdTask map[string]any
-		err = json.Unmarshal([]byte(output), &createdTask)
-		assert.NoError(err)
-		assert.Equal("Write docs", createdTask["title"])
-		assert.Equal("Document the create flow", createdTask["description"])
-		assert.Equal("incomplete", createdTask["completed"])
+		assert.Contains(output, "Write docs")
+		assert.Contains(output, "Document the create flow")
+		assert.Contains(output, "task-1")
+		assert.NotContains(output, "incomplete")
+		assert.NotContains(output, "\"title\"")
 	})
 
 	It("lists complete and incomplete tasks separately", func() {
