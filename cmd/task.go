@@ -61,7 +61,7 @@ func NewListCmd() *cobra.Command {
 	flags := struct {
 		Status string
 	}{
-		Status: string(tasks.ListFilterAll),
+		Status: tasks.ListFilterAll,
 	}
 
 	cmd := &cobra.Command{
@@ -89,7 +89,7 @@ func NewListCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&flags.Status, "status", string(tasks.ListFilterAll), "Filter by all, complete, or incomplete.")
+	cmd.Flags().StringVar(&flags.Status, "status", tasks.ListFilterAll, "Filter by all, complete, or incomplete.")
 
 	return cmd
 }
@@ -184,31 +184,33 @@ func resolveUpdateInput(
 	completed bool,
 	promptReader *bufio.Reader,
 ) (tasks.UpdateTaskInput, error) {
-	updateInput := tasks.UpdateTaskInput{}
-	hasFlagUpdates := false
-
-	if cmd.Flags().Changed("title") {
-		updateInput.Title = &title
-		hasFlagUpdates = true
-	}
-
-	if cmd.Flags().Changed("description") {
-		updateInput.Description = &description
-		hasFlagUpdates = true
-	}
-
-	if cmd.Flags().Changed("completed") {
-		updateInput.Completed = tasks.OptionalBool(completed)
-		hasFlagUpdates = true
-	}
-
-	if hasFlagUpdates {
-		return updateInput, nil
-	}
-
 	task, err := getTaskStoreFromCommandContext(cmd).Get(username, taskID)
 	if err != nil {
 		return tasks.UpdateTaskInput{}, err
+	}
+
+	nextTitle := task.Title
+	nextDescription := task.Description
+	nextCompleted := task.Completed
+
+	hasChanges := false
+	if cmd.Flags().Changed("title") {
+		nextTitle = title
+		hasChanges = true
+	}
+
+	if cmd.Flags().Changed("description") {
+		nextDescription = description
+		hasChanges = true
+	}
+
+	if cmd.Flags().Changed("completed") {
+		nextCompleted = completed
+		hasChanges = true
+	}
+
+	if hasChanges {
+		return createUpdateInputFromTaskDiff(task, nextTitle, nextDescription, nextCompleted)
 	}
 
 	return runUpdateTaskForm(cmd, task, promptReader)
@@ -263,7 +265,7 @@ func runInteractiveCreateTaskForm(cmd *cobra.Command, currentTitle string, curre
 				Description("Enter the task title.").
 				Value(&title).
 				Validate(requiredText("title")),
-			huh.NewInput().
+			huh.NewText().
 				Title("Description").
 				Description("Enter the task description.").
 				Value(&description).
@@ -297,7 +299,7 @@ func runInteractiveUpdateTaskForm(task tasks.Task) (tasks.UpdateTaskInput, error
 				Description("Update the task title.").
 				Value(&title).
 				Validate(requiredText("title")),
-			huh.NewInput().
+			huh.NewText().
 				Title("Description").
 				Description("Update the task description.").
 				Value(&description).
@@ -340,21 +342,25 @@ func createUpdateInputFromTaskDiff(
 	description string,
 	completed bool,
 ) (tasks.UpdateTaskInput, error) {
-	updateInput := tasks.UpdateTaskInput{}
+	updateInput := tasks.UpdateTaskInput{
+		Title:       task.Title,
+		Description: task.Description,
+		Completed:   task.Completed,
+	}
 	changedCount := 0
 
 	if title != task.Title {
-		updateInput.Title = &title
+		updateInput.Title = title
 		changedCount++
 	}
 
 	if description != task.Description {
-		updateInput.Description = &description
+		updateInput.Description = description
 		changedCount++
 	}
 
 	if completed != task.Completed {
-		updateInput.Completed = tasks.OptionalBool(completed)
+		updateInput.Completed = completed
 		changedCount++
 	}
 
@@ -559,13 +565,13 @@ func shouldUseInteractiveForm(reader io.Reader) bool {
 	return term.IsTerminal(int(file.Fd()))
 }
 
-func parseListFilter(value string) (tasks.ListFilter, error) {
+func parseListFilter(value string) (string, error) {
 	switch value {
-	case string(tasks.ListFilterAll):
+	case tasks.ListFilterAll:
 		return tasks.ListFilterAll, nil
-	case string(tasks.ListFilterComplete):
+	case tasks.ListFilterComplete:
 		return tasks.ListFilterComplete, nil
-	case string(tasks.ListFilterIncomplete):
+	case tasks.ListFilterIncomplete:
 		return tasks.ListFilterIncomplete, nil
 	default:
 		return "", custom_errors.CreateInvalidFlagErrorWithMessage(

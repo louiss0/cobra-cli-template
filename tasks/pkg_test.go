@@ -21,7 +21,9 @@ var _ = Describe("Store", func() {
 		assert.NoError(err)
 
 		updatedTask, err := store.Update("alice", createdTask.ID, tasks.UpdateTaskInput{
-			Completed: tasks.OptionalBool(true),
+			Title:       createdTask.Title,
+			Description: createdTask.Description,
+			Completed:   true,
 		})
 		assert.NoError(err)
 		assert.True(updatedTask.Completed)

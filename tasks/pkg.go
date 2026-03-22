@@ -16,14 +16,12 @@ import (
 const weeklyCleanupWindow = 7 * 24 * time.Hour
 
 const (
-	ListFilterAll        ListFilter = "all"
-	ListFilterComplete   ListFilter = "complete"
-	ListFilterIncomplete ListFilter = "incomplete"
+	ListFilterAll        = "all"
+	ListFilterComplete   = "complete"
+	ListFilterIncomplete = "incomplete"
 )
 
 var ErrTaskNotFound = errors.New("task not found")
-
-type ListFilter string
 
 type Task struct {
 	ID          string `json:"id"`
@@ -50,14 +48,9 @@ type CreateTaskInput struct {
 }
 
 type UpdateTaskInput struct {
-	Title       *string
-	Description *string
-	Completed   OptionalBoolean
-}
-
-type OptionalBoolean struct {
-	IsSet bool
-	Value bool
+	Title       string
+	Description string
+	Completed   bool
 }
 
 type Store struct {
@@ -83,13 +76,6 @@ type taskJSON struct {
 	Completed   bool   `json:"completed"`
 	CreatedAt   int64  `json:"createdAt"`
 	UpdatedAt   int64  `json:"updatedAt"`
-}
-
-func OptionalBool(value bool) OptionalBoolean {
-	return OptionalBoolean{
-		IsSet: true,
-		Value: value,
-	}
 }
 
 func NewStore(dataDir string, now func() time.Time, newTaskID func() string) *Store {
@@ -195,7 +181,7 @@ func (store *Store) Create(username string, input CreateTaskInput) (Task, error)
 	return task, nil
 }
 
-func (store *Store) List(username string, filter ListFilter) ([]Task, error) {
+func (store *Store) List(username string, filter string) ([]Task, error) {
 	document, err := store.load(username)
 	if err != nil {
 		return nil, err
@@ -252,17 +238,9 @@ func (store *Store) Update(username string, id string, input UpdateTaskInput) (T
 		return Task{}, fmt.Errorf("%w: %s", ErrTaskNotFound, id)
 	}
 
-	if input.Title != nil {
-		task.Title = *input.Title
-	}
-
-	if input.Description != nil {
-		task.Description = *input.Description
-	}
-
-	if input.Completed.IsSet {
-		task.Completed = input.Completed.Value
-	}
+	task.Title = input.Title
+	task.Description = input.Description
+	task.Completed = input.Completed
 
 	task.updatedAt = store.now().Unix()
 	document = removeTask(document, bucketName, index)
