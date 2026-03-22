@@ -12,7 +12,9 @@ This project contains a few important packages:
 - `templates` the place where all templates typically used by Ginkgo go
 - `validation` the place where all validation go. 
 
-When building you should use the `go test --ldflags "-X github.com/louiss0/g-tools/mode.buildMode='production'"` command. 
+When you need a local executable build.
+Use `go build . -ldflags "-X github.com/louiss0/g-tools/mode.buildMode=production"`
+This makes sure that production builds use features that aren't tested. 
 
 ## Testing 
 
@@ -20,8 +22,9 @@ When building you should use the `go test --ldflags "-X github.com/louiss0/g-too
 The assert function is setup in every test `*_suite_test.go` file.
 This means you only need to use it in your test files. It's name is `assert`.
 
-To make a new test suite file, use the command `ginkgo bootstrap <suite_name> --template templates/testify-suite.txt`
-To make a new test file, use the command `ginkgo generate <test_name> --template templates/testify-test.txt`
+When creating a new test suite file, prefer `ginkgo bootstrap <suite_name> --template templates/testify-suite.txt`.
+When creating a new test file, prefer `ginkgo generate <test_name> --template templates/testify-test.txt`.
+If you create the files manually, match the structure provided by those templates.
 
 You are supposed to always write Ginkgo code when writing tests! Don't write Go testing code!
 Please prefer to run `ginkgo run <package>` over the normal go test command.
@@ -32,13 +35,12 @@ When doing coverage use this command
 ginkgo -r --cover --output-dir coverage --keep-separate-coverprofiles
 ```
 
-If
-
 ## How to develop commands! 
 
 In order for this template to work, you need to make Cobra commands that are functions that return `cobra.Command`.
 They must look like the structure below. `<Command_Name>` is the name of the command you want to create.
-Derive it from the first word before the underscore in the file name.
+Derive it from the file name without the `.go` extension.
+If the file name contains an underscore, use the segment before the first underscore.
 
 ```go
 func New<Command_Name>() *cobra.Command {
@@ -57,7 +59,8 @@ func New<Command_Name>() *cobra.Command {
 ```
 
 When making flags make sure to place them in the function that returns the `cobra.Command`.
-Do not place them on the `rootCmd` object or any returned from the `New<Command_Name>` function.
+Declare them on the local `cmd` before returning it.
+Do not place non-global flags on the `rootCmd` object or attach them from outside the `New<Command_Name>` function.
 
 In the `RunE` function, return `nil` if the command succeeds and an error if it fails.
 This WriteModeAwareOutput is in `cmd/pkg.go` use it to return messages! 
@@ -71,8 +74,8 @@ Then you should store the arguments in an annonymus struct using the `Run` or `R
 
 ```go
 
-var Args struct {
-	 Package string
+var commandArgs struct {
+	Package string
 }
 
 cmd := &cobra.Command{
@@ -96,7 +99,9 @@ cmd := &cobra.Command{
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			
-			Args.Info = args[0]
+			commandArgs.Package = args[0]
+			
+			return nil
 			
 		}
 	}
@@ -139,7 +144,7 @@ To make sure two flags must be sent together use `cmd.MarkFlagsRequiredTogether(
 To make sure make sure that a specific flag must be used alone use `cmd.MarkFlagsMutuallyExclusive()`
 For other flag related constraints find a function prefixed with Mark! It should contain what you need.
 
-When it comes to passing values from one command to sub-commands I like to use the `PrePersistentRunE` function.
+When it comes to passing values from one command to sub-commands I like to use the `PersistentPreRunE` function.
 The point of this function is to make sure that values are valid. 
 It's used to set flag values that will typically be used in subcommands.
 The one in the root command is used to setup and set the context! 
@@ -150,15 +155,10 @@ Always make sure `SetContext` is used at the outer most final return!
 
 ```go
 &cobra.Command{
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		
-		persistentFlags := cmd.PersistentFlags()
-		
-		c_ctx = cmd.GetContext()
-		
-		
-		cmd.SetContext(c_ctx)
-	  return nil 
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		ctx := GenerateContextFromMap(cmd, map[string]any{})
+		cmd.SetContext(ctx)
+		return nil
 		
 				
 	},
@@ -169,13 +169,16 @@ If you decide to set things in the context you need to make helper functions to 
 These kinds of functions are Command Context Fetchers! They take the `cobra.Command` as the only parameter. 
 Then they get a value from the context using the key that was used to get the context.
 They are named `get<dependency>FromCommandContext` `<dependency>` is the name of the dependency that is getting fetched.
-They are supposed to return the dependency typed and asserted!
+They should use a checked type assertion and return a descriptive error when the dependency is missing or invalid.
 
 Example Command Context Fetcher
 ```go
-func getGoEnvFromCommandContext(cmd *cobra.Command) env.GoEnv {
-	goEnv := cmd.Context().Value(_GO_ENV).(env.GoEnv)
-	return goEnv
+func getGoEnvFromCommandContext(cmd *cobra.Command) (env.GoEnv, error) {
+	goEnv, ok := cmd.Context().Value(_GO_ENV).(env.GoEnv)
+	if !ok {
+		return env.GoEnv{}, fmt.Errorf("missing %s in command context", _GO_ENV)
+	}
+	return goEnv, nil
 }
 ```
 
