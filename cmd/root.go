@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/charmbracelet/fang"
 	"github.com/louiss0/cobra-cli-template/auth"
 	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/tasks"
@@ -62,9 +63,9 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 	}{}
 
 	cmd := &cobra.Command{
-		Use:           "task-list",
+		Use:           "taskman",
 		Short:         "Manage signed-in users and their task lists",
-		Long:          "Manage signed-in users and their task lists with local JSON storage.",
+		Long:          "Taskman manages signed-in users and their task lists with local JSON storage.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -85,6 +86,8 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 		}),
 	}
 
+	cmd.CompletionOptions.DisableDefaultCmd = true
+
 	cmd.PersistentFlags().StringVar(
 		&rootFlags.DataDir,
 		"data-dir",
@@ -97,29 +100,44 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 		&cobra.Group{ID: "task", Title: "Task Commands"},
 	)
 
+	authCmd := NewAuthCmd()
+	createCmd := NewCreateCmd()
+	listCmd := NewListCmd()
+	getCmd := NewGetCmd()
+	updateCmd := NewUpdateCmd()
+	deleteCmd := NewDeleteCmd()
+	completionCmd := NewCompletionCmd(cmd)
+
+	configureRootAutocomplete(cmd)
+
 	cmd.AddCommand(
-		NewAuthCmd(),
-		NewCreateCmd(),
-		NewListCmd(),
-		NewGetCmd(),
-		NewUpdateCmd(),
-		NewDeleteCmd(),
+		authCmd,
+		createCmd,
+		listCmd,
+		getCmd,
+		updateCmd,
+		deleteCmd,
+		completionCmd,
 	)
 
 	return cmd
 }
 
 func Execute() error {
-	return rootCmd.ExecuteContext(context.Background())
+	return fang.Execute(
+		context.Background(),
+		rootCmd,
+		fang.WithoutCompletions(),
+	)
 }
 
 func defaultDataDir() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return filepath.Join(".", ".task-list")
+		return filepath.Join(".", ".taskman")
 	}
 
-	return filepath.Join(configDir, "task-list")
+	return filepath.Join(configDir, "taskman")
 }
 
 func getAuthServiceFromCommandContext(cmd *cobra.Command) *auth.Service {

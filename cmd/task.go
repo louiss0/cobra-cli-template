@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/charmbracelet/huh"
 	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/custom_flags"
@@ -97,11 +98,15 @@ func NewListCmd() *cobra.Command {
 		return custom_errors.CreateTaskListCommandError(command, err)
 	})
 
+	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+		"status": actionTaskStatusValues(),
+	})
+
 	return cmd
 }
 
 func NewGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "get [task-id]",
 		Short:   "Show one task",
 		GroupID: "task",
@@ -125,6 +130,10 @@ func NewGetCmd() *cobra.Command {
 			return writeStyledTaskOutput(cmd, task)
 		}),
 	}
+
+	carapace.Gen(cmd).PositionalCompletion(actionTaskIDs(cmd))
+
+	return cmd
 }
 
 func NewUpdateCmd() *cobra.Command {
@@ -183,6 +192,11 @@ func NewUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.Description, "description", "", "New task description.")
 	cmd.Flags().Var(&completedFlag, "completed", "Set the completion state.")
 
+	carapace.Gen(cmd).PositionalCompletion(actionTaskIDs(cmd))
+	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+		"completed": actionCompletionStateValues(),
+	})
+
 	return cmd
 }
 
@@ -228,7 +242,7 @@ func resolveUpdateInput(
 }
 
 func NewDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "delete [task-id]",
 		Short:   "Delete a task",
 		GroupID: "task",
@@ -255,6 +269,10 @@ func NewDeleteCmd() *cobra.Command {
 			})
 		}),
 	}
+
+	carapace.Gen(cmd).PositionalCompletion(actionTaskIDs(cmd))
+
+	return cmd
 }
 
 func runCreateTaskForm(cmd *cobra.Command, currentTitle string, currentDescription string) (string, string, error) {

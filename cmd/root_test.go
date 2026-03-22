@@ -20,8 +20,9 @@ var _ = Describe("Root Command", func() {
 		}), "--help")
 
 		assert.NoError(err)
-		assert.Contains(output, "Manage signed-in users and their task lists")
+		assert.Contains(output, "Taskman manages signed-in users and their task lists")
 		assert.Contains(output, "auth")
+		assert.Contains(output, "completion")
 		assert.Contains(output, "create")
 		assert.Contains(output, "list")
 	})
@@ -71,7 +72,7 @@ var _ = Describe("Root Command", func() {
 		assert.Error(err)
 		assert.Contains(err.Error(), "accepts 1 arg(s), received 0")
 		assert.Contains(err.Error(), "provide required argument(s): <username>")
-		assert.Contains(err.Error(), "task-list auth register <username>")
+		assert.Contains(err.Error(), "taskman auth register <username>")
 	})
 
 	It("registers, signs in, and reports the active user", func() {
@@ -286,7 +287,7 @@ var _ = Describe("Root Command", func() {
 
 		assert.Error(err)
 		assert.Contains(err.Error(), "invalid argument: provide at least one value to update")
-		assert.Contains(err.Error(), "task-list update [task-id] --help")
+		assert.Contains(err.Error(), "taskman update [task-id] --help")
 	})
 
 	It("updates a selected task with form values when no id and flags are provided", func() {
@@ -348,7 +349,33 @@ var _ = Describe("Root Command", func() {
 
 		assert.Error(err)
 		assert.Contains(err.Error(), "invalid flag \"status\": value must be one of [all complete incomplete]")
-		assert.Contains(err.Error(), "task-list list --help")
+		assert.Contains(err.Error(), "taskman list --help")
+	})
+
+	It("generates Carapace completion scripts", func() {
+		output, err := executeCmd(cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      tasks.NewTaskID,
+		}), "completion", "powershell")
+
+		assert.NoError(err)
+		assert.Contains(output, "_carapace")
+		assert.Contains(output, "taskman")
+	})
+
+	It("rejects unsupported completion shells", func() {
+		_, err := executeCmd(cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      tasks.NewTaskID,
+		}), "completion", "cmd")
+
+		assert.Error(err)
+		assert.Contains(err.Error(), "shell must be one of [bash elvish fish nushell oil powershell tcsh xonsh zsh]")
+		assert.Contains(err.Error(), "taskman completion [shell] --help")
 	})
 
 	It("deletes a selected task when no id is provided", func() {

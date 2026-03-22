@@ -19,8 +19,8 @@ var (
 )
 
 const (
-	signInCommand   = "task-list auth signin <username>"
-	registerCommand = "task-list auth register <username>"
+	signInCommand   = "taskman auth signin <username>"
+	registerCommand = "taskman auth register <username>"
 )
 
 var validFlagNamePattern = regexp.MustCompile(`^[a-z0-9]+$`)
@@ -96,7 +96,7 @@ func CreateTaskListCommandError(command *cobra.Command, err error) error {
 	case errors.Is(err, tasks.ErrTaskNotFound):
 		return createTaskListErrorWithHint(
 			err.Error(),
-			"run `task-list list` to find a valid task id",
+			"run `taskman list` to find a valid task id",
 		)
 	case isCobraArgumentError(err):
 		return createTaskListErrorWithHint(
@@ -106,12 +106,12 @@ func CreateTaskListCommandError(command *cobra.Command, err error) error {
 	case errors.Is(err, ErrInvalidFlag):
 		return createTaskListErrorWithHint(
 			err.Error(),
-			createCommandHelpHint(command, "run `task-list <command> --help` for valid flag values"),
+			createCommandHelpHint(command, "run `taskman <command> --help` for valid flag values"),
 		)
 	case errors.Is(err, ErrInvalidArgument):
 		return createTaskListErrorWithHint(
 			err.Error(),
-			createCommandHelpHint(command, "run `task-list <command> --help` for argument usage"),
+			createCommandHelpHint(command, "run `taskman <command> --help` for argument usage"),
 		)
 	default:
 		return createTaskListErrorWithHint(
@@ -123,10 +123,10 @@ func CreateTaskListCommandError(command *cobra.Command, err error) error {
 
 func createTaskListErrorWithHint(message string, hint string) error {
 	if hint == "" {
-		return fmt.Errorf("task-list error: %s", message)
+		return fmt.Errorf("taskman error: %s", message)
 	}
 
-	return fmt.Errorf("task-list error: %s\nhint: %s", message, hint)
+	return fmt.Errorf("taskman error: %s\nhint: %s", message, hint)
 }
 
 func isCobraArgumentError(err error) bool {
@@ -151,7 +151,7 @@ func createArgumentHint(command *cobra.Command) string {
 
 func createCommandHelpHint(command *cobra.Command, fallback string) string {
 	invocation := createCommandInvocation(command)
-	if invocation == "task-list" {
+	if invocation == "taskman" {
 		return fallback
 	}
 
@@ -160,7 +160,7 @@ func createCommandHelpHint(command *cobra.Command, fallback string) string {
 
 func createCommandInvocation(command *cobra.Command) string {
 	if command == nil {
-		return "task-list"
+		return "taskman"
 	}
 
 	useTokens := strings.Fields(command.Use)

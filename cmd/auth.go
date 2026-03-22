@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/carapace-sh/carapace"
 	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/validation"
@@ -8,9 +9,14 @@ import (
 )
 
 func NewAuthCmd() *cobra.Command {
+	registerCmd := NewRegisterCmd()
+	signInCmd := NewSignInCmd()
+	signOutCmd := NewSignOutCmd()
+	whoAmICmd := NewWhoAmICmd()
+
 	cmd := &cobra.Command{
 		Use:     "auth",
-		Short:   "Manage local task-list users",
+		Short:   "Manage local Taskman users",
 		Long:    "Register users, sign in, sign out, and inspect the current session.",
 		GroupID: "auth",
 		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
@@ -19,11 +25,13 @@ func NewAuthCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		NewRegisterCmd(),
-		NewSignInCmd(),
-		NewSignOutCmd(),
-		NewWhoAmICmd(),
+		registerCmd,
+		signInCmd,
+		signOutCmd,
+		whoAmICmd,
 	)
+
+	carapace.Gen(signInCmd).PositionalCompletion(actionRegisteredUsers(signInCmd))
 
 	return cmd
 }
