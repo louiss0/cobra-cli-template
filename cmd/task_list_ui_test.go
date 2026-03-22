@@ -1,50 +1,59 @@
 package cmd
 
 import (
+	"strings"
+
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/louiss0/cobra-cli-template/tasks"
 	. "github.com/onsi/ginkgo/v2"
 	tAssert "github.com/stretchr/testify/assert"
 )
 
 var _ = Describe("Task List UI", func() {
-	It("shows add task option for all and incomplete filters", func() {
+	It("builds task items without an add-task entry", func() {
 		assert := tAssert.New(GinkgoT())
 
-		assert.True(shouldShowAddTaskOption(tasks.ListFilterAll))
-		assert.True(shouldShowAddTaskOption(tasks.ListFilterIncomplete))
-	})
-
-	It("does not show add task option for complete filter", func() {
-		assert := tAssert.New(GinkgoT())
-
-		assert.False(shouldShowAddTaskOption(tasks.ListFilterComplete))
-	})
-
-	It("adds an add-task item when the filter supports creating tasks", func() {
-		assert := tAssert.New(GinkgoT())
-
-		taskList := []tasks.Task{
+		items := buildTaskItems([]tasks.Task{
 			{ID: "task-1", Title: "Write tests", Description: "Cover list UI", Completed: false},
-		}
-
-		items := buildTaskListItems(taskList, tasks.ListFilterAll)
+			{ID: "task-2", Title: "Ship CLI", Description: "Review task list", Completed: true},
+		})
 
 		assert.Len(items, 2)
-		_, ok := items[1].(addTaskListItem)
-		assert.True(ok)
+
+		for _, item := range items {
+			_, ok := item.(taskListItem)
+			assert.True(ok)
+		}
 	})
 
-	It("does not add the add-task item for complete filter", func() {
+	It("renders task items after the list receives a window size", func() {
 		assert := tAssert.New(GinkgoT())
 
-		taskList := []tasks.Task{
-			{ID: "task-1", Title: "Write tests", Description: "Cover list UI", Completed: true},
+		model := taskListModel{
+			list: listWithItems(
+				buildTaskItems([]tasks.Task{
+					{ID: "task-1", Title: "Write tests", Description: "Cover list UI"},
+				}),
+				0,
+				0,
+			),
 		}
 
-		items := buildTaskListItems(taskList, tasks.ListFilterComplete)
+		nextModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
 
-		assert.Len(items, 1)
-		_, ok := items[0].(taskListItem)
-		assert.True(ok)
+		view := nextModel.(taskListModel).View()
+
+		assert.True(strings.Contains(view, "Write tests"))
+		assert.True(strings.Contains(view, "Cover list UI"))
 	})
 })
+
+func listWithItems(items []list.Item, width int, height int) list.Model {
+	taskList := list.New(items, list.NewDefaultDelegate(), width, height)
+	taskList.Title = "Tasks"
+	taskList.SetShowHelp(true)
+	taskList.SetFilteringEnabled(false)
+	taskList.SetStatusBarItemName("task", "tasks")
+	return taskList
+}

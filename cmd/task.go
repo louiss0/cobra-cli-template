@@ -89,7 +89,7 @@ func NewListCmd() *cobra.Command {
 			}
 
 			if shouldUseTaskListUI(cmd) {
-				return runTaskListUI(cmd, username, filter, taskList)
+				return runTaskListUI(cmd, taskList)
 			}
 
 			return output.WriteJSONOutput(cmd, tasks.PresentTasks(taskList))
