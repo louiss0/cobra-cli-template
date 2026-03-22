@@ -216,6 +216,44 @@ var _ = Describe("Root Command", func() {
 		assert.Equal("complete", updatedTask["completed"])
 	})
 
+	It("gets a selected task when no id is provided", func() {
+		dataDir := GinkgoT().TempDir()
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      func() string { return "task-1" },
+		})
+
+		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(command, "--data-dir", dataDir, "auth", "signin", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(
+			command,
+			"--data-dir", dataDir,
+			"create",
+			"--title", "Write docs",
+			"--description", "Show styled get output",
+		)
+		assert.NoError(err)
+
+		output, err := executeCmdWithInput(
+			command,
+			"1\n",
+			"--data-dir", dataDir,
+			"get",
+		)
+		assert.NoError(err)
+		assert.Contains(output, "Write docs")
+		assert.Contains(output, "Show styled get output")
+		assert.Contains(output, "incomplete")
+		assert.NotContains(output, "\"id\"")
+		assert.NotContains(output, "\"title\"")
+	})
+
 	It("shows a clear flag message when update has no changes", func() {
 		dataDir := GinkgoT().TempDir()
 		command := cmd.NewRootCmd(cmd.Dependencies{

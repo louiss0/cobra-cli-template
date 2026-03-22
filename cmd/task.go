@@ -12,10 +12,13 @@ import (
 	"github.com/louiss0/cobra-cli-template/custom_flags"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/tasks"
+	"github.com/louiss0/g-tools/mode"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+var modeOperator = mode.NewModeOperator()
 
 func NewCreateCmd() *cobra.Command {
 	flags := struct {
@@ -85,6 +88,10 @@ func NewListCmd() *cobra.Command {
 				return err
 			}
 
+			if shouldUseTaskListUI(cmd) {
+				return runTaskListUI(cmd, username, filter, taskList)
+			}
+
 			return output.WriteJSONOutput(cmd, tasks.PresentTasks(taskList))
 		}),
 	}
@@ -96,22 +103,27 @@ func NewListCmd() *cobra.Command {
 
 func NewGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get <task-id>",
+		Use:     "get [task-id]",
 		Short:   "Show one task",
 		GroupID: "task",
-		Args:    custom_errors.WrapArgs(cobra.ExactArgs(1)),
+		Args:    custom_errors.WrapArgs(cobra.MaximumNArgs(1)),
 		RunE: custom_errors.WrapRunE(func(cmd *cobra.Command, args []string) error {
 			username, err := signedInUsernameFromCommandContext(cmd)
 			if err != nil {
 				return err
 			}
 
-			task, err := getTaskStoreFromCommandContext(cmd).Get(username, args[0])
+			taskID, err := resolveTaskIDForGet(cmd, username, args)
 			if err != nil {
 				return err
 			}
 
-			return output.WriteJSONOutput(cmd, tasks.PresentTask(task))
+			task, err := getTaskStoreFromCommandContext(cmd).Get(username, taskID)
+			if err != nil {
+				return err
+			}
+
+			return writeStyledTaskOutput(cmd, task)
 		}),
 	}
 }
@@ -475,6 +487,27 @@ func resolveTaskIDForAction(cmd *cobra.Command, username string, args []string, 
 	return resolveTaskIDForActionWithReader(cmd, username, args, action, nil)
 }
 
+func resolveTaskIDForGet(cmd *cobra.Command, username string, args []string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+
+	taskList, err := getTaskStoreFromCommandContext(cmd).List(username, tasks.ListFilterAll)
+	if err != nil {
+		return "", err
+	}
+
+	if len(taskList) == 0 {
+		return "", fmt.Errorf("no tasks available to get")
+	}
+
+	if shouldUseTaskListUI(cmd) {
+		return runTaskIDSelectionUI(cmd, taskList, "Select Task")
+	}
+
+	return selectTaskIDFromPrompt(cmd, bufio.NewReader(cmd.InOrStdin()), taskList, "get")
+}
+
 func resolveTaskIDForActionWithReader(
 	cmd *cobra.Command,
 	username string,
@@ -557,7 +590,19 @@ func selectTaskIDFromPrompt(cmd *cobra.Command, reader *bufio.Reader, taskList [
 }
 
 func shouldUseInteractiveForm(reader io.Reader) bool {
-	file, ok := reader.(interface{ Fd() uintptr })
+	return isTerminal(reader)
+}
+
+func shouldUseTaskListUI(cmd *cobra.Command) bool {
+	if !modeOperator.IsProductionMode() {
+		return false
+	}
+
+	return isTerminal(cmd.InOrStdin()) && isTerminal(cmd.OutOrStdout())
+}
+
+func isTerminal(value any) bool {
+	file, ok := value.(interface{ Fd() uintptr })
 	if !ok {
 		return false
 	}
