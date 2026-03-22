@@ -3,10 +3,10 @@ package custom_flags
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/louiss0/cobra-cli-template/custom_errors"
+	"github.com/louiss0/cobra-cli-template/validation"
 )
 
 type emptyStringFlag struct {
@@ -23,7 +23,8 @@ func (flag emptyStringFlag) String() string {
 }
 
 func (flag *emptyStringFlag) Set(value string) error {
-	if strings.TrimSpace(value) == "" {
+	err := validation.ValidateRequiredText(strings.ToLower(flag.flagName), value)
+	if err != nil {
 		return custom_errors.CreateInvalidFlagErrorWithMessage(
 			custom_errors.FlagName(flag.flagName),
 			"value cannot be empty",
@@ -48,16 +49,22 @@ func NewBoolFlag(flagName string) boolFlag {
 }
 
 func (flag boolFlag) String() string {
-	return strconv.FormatBool(flag.value)
+	if flag.value {
+		return "true"
+	}
+
+	return "false"
 }
 
 func (flag *boolFlag) Set(value string) error {
-	parsedValue, err := strconv.ParseBool(value)
-	if err != nil {
+	parsedValue, err := validation.ParseBoolString(value, func(message string) error {
 		return custom_errors.CreateInvalidFlagErrorWithMessage(
 			custom_errors.FlagName(flag.flagName),
-			"value must be either true or false",
+			message,
 		)
+	})
+	if err != nil {
+		return err
 	}
 
 	flag.value = parsedValue
@@ -90,24 +97,18 @@ func (flag unionFlag) String() string {
 }
 
 func (flag *unionFlag) Set(value string) error {
-	if strings.TrimSpace(value) == "" {
+	err := validation.ValidateAllowedString(value, flag.allowedValues, func(message string) error {
 		return custom_errors.CreateInvalidFlagErrorWithMessage(
 			custom_errors.FlagName(flag.flagName),
-			"value cannot be empty",
+			message,
 		)
+	})
+	if err != nil {
+		return err
 	}
 
-	for _, allowedValue := range flag.allowedValues {
-		if value == allowedValue {
-			flag.value = value
-			return nil
-		}
-	}
-
-	return custom_errors.CreateInvalidFlagErrorWithMessage(
-		custom_errors.FlagName(flag.flagName),
-		fmt.Sprintf("value must be one of %v", flag.allowedValues),
-	)
+	flag.value = value
+	return nil
 }
 
 func (flag unionFlag) Type() string {
@@ -138,7 +139,7 @@ func NewRangeFlag(flagName string, min, max int) RangeFlag {
 }
 
 func (flag RangeFlag) String() string {
-	return strconv.Itoa(flag.value)
+	return fmt.Sprintf("%d", flag.value)
 }
 
 func (flag RangeFlag) Value() int {
@@ -146,19 +147,14 @@ func (flag RangeFlag) Value() int {
 }
 
 func (flag *RangeFlag) Set(value string) error {
-	number, err := strconv.Atoi(value)
+	number, err := validation.ParseIntegerRange(value, flag.min, flag.max, func(message string) error {
+		return custom_errors.CreateInvalidFlagErrorWithMessage(
+			custom_errors.FlagName(flag.flagName),
+			message,
+		)
+	})
 	if err != nil {
-		return custom_errors.CreateInvalidFlagErrorWithMessage(
-			custom_errors.FlagName(flag.flagName),
-			fmt.Sprintf("value must be an integer between %d and %d", flag.min, flag.max),
-		)
-	}
-
-	if number < flag.min || number > flag.max {
-		return custom_errors.CreateInvalidFlagErrorWithMessage(
-			custom_errors.FlagName(flag.flagName),
-			fmt.Sprintf("value must be between %d and %d", flag.min, flag.max),
-		)
+		return err
 	}
 
 	flag.value = number

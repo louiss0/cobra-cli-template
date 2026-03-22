@@ -12,6 +12,7 @@ import (
 	"github.com/louiss0/cobra-cli-template/custom_flags"
 	"github.com/louiss0/cobra-cli-template/output"
 	"github.com/louiss0/cobra-cli-template/tasks"
+	"github.com/louiss0/cobra-cli-template/validation"
 	"github.com/louiss0/g-tools/mode"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -61,11 +62,11 @@ func NewCreateCmd() *cobra.Command {
 }
 
 func NewListCmd() *cobra.Command {
-	flags := struct {
-		Status string
-	}{
-		Status: tasks.ListFilterAll,
-	}
+	statusFlag := custom_flags.NewUnionFlag(
+		[]string{tasks.ListFilterAll, tasks.ListFilterComplete, tasks.ListFilterIncomplete},
+		"status",
+	)
+	_ = statusFlag.Set(tasks.ListFilterAll)
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -78,12 +79,7 @@ func NewListCmd() *cobra.Command {
 				return err
 			}
 
-			filter, err := parseListFilter(flags.Status)
-			if err != nil {
-				return err
-			}
-
-			taskList, err := getTaskStoreFromCommandContext(cmd).List(username, filter)
+			taskList, err := getTaskStoreFromCommandContext(cmd).List(username, statusFlag.String())
 			if err != nil {
 				return err
 			}
@@ -96,7 +92,10 @@ func NewListCmd() *cobra.Command {
 		}),
 	}
 
-	cmd.Flags().StringVar(&flags.Status, "status", tasks.ListFilterAll, "Filter by all, complete, or incomplete.")
+	cmd.Flags().Var(&statusFlag, "status", "Filter by all, complete, or incomplete.")
+	cmd.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
+		return custom_errors.CreateTaskListCommandError(command, err)
+	})
 
 	return cmd
 }
@@ -403,11 +402,7 @@ func runPromptCreateTaskForm(cmd *cobra.Command, currentTitle string, currentDes
 
 func requiredText(name string) func(string) error {
 	return func(value string) error {
-		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("%s cannot be empty", name)
-		}
-
-		return nil
+		return validation.ValidateRequiredText(name, value)
 	}
 }
 
@@ -608,22 +603,6 @@ func isTerminal(value any) bool {
 	}
 
 	return term.IsTerminal(int(file.Fd()))
-}
-
-func parseListFilter(value string) (string, error) {
-	switch value {
-	case tasks.ListFilterAll:
-		return tasks.ListFilterAll, nil
-	case tasks.ListFilterComplete:
-		return tasks.ListFilterComplete, nil
-	case tasks.ListFilterIncomplete:
-		return tasks.ListFilterIncomplete, nil
-	default:
-		return "", custom_errors.CreateInvalidFlagErrorWithMessage(
-			custom_errors.FlagName("status"),
-			"value must be one of [all complete incomplete]",
-		)
-	}
 }
 
 func lower(value string) string {

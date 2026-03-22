@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/louiss0/cobra-cli-template/custom_errors"
 	"github.com/louiss0/cobra-cli-template/output"
+	"github.com/louiss0/cobra-cli-template/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -108,11 +109,5 @@ func usernameArgs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if args[0] != lower(args[0]) {
-		return custom_errors.CreateInvalidArgumentErrorWithMessage(
-			"username must be lowercase",
-		)
-	}
-
-	return nil
+	return validation.ValidateLowercaseText("username", args[0])
 }

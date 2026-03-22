@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kaptinlin/gozod"
 	"github.com/louiss0/cobra-cli-template/auth"
 	"github.com/louiss0/cobra-cli-template/tasks"
 	"github.com/spf13/cobra"
@@ -27,12 +28,11 @@ var validFlagNamePattern = regexp.MustCompile(`^[a-z0-9]+$`)
 type FlagName string
 
 func (name FlagName) Validate() error {
-	if !validFlagNamePattern.MatchString(string(name)) {
-		return fmt.Errorf(
-			"%w %q: name must be lowercase alphanumeric",
-			ErrInvalidFlag,
-			name,
-		)
+	_, err := gozod.String().
+		Regex(validFlagNamePattern, "name must be lowercase alphanumeric").
+		Parse(string(name))
+	if err != nil {
+		return fmt.Errorf("%w %q: name must be lowercase alphanumeric", ErrInvalidFlag, name)
 	}
 
 	return nil
