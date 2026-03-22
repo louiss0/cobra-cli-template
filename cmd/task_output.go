@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/louiss0/cobra-cli-template/tasks"
 	"github.com/spf13/cobra"
 )
+
+const taskDisplayWidth = 60
 
 func writeStyledTaskOutput(cmd *cobra.Command, task tasks.Task) error {
 	content := renderTaskWithStatus(task)
@@ -38,39 +39,49 @@ func writeTaskOutput(cmd *cobra.Command, content string) error {
 }
 
 func renderTaskWithStatus(task tasks.Task) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	descriptionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-
-	statusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
 	status := "incomplete"
+	statusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0"))
 	if task.Completed {
 		status = "complete"
-		statusStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("42"))
+		statusStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0"))
 	}
 
-	builder := strings.Builder{}
-	builder.WriteString(titleStyle.Render(task.Title))
-	builder.WriteString("\n")
-	builder.WriteString(descriptionStyle.Render(task.Description))
-	builder.WriteString("\n")
-	builder.WriteString(statusStyle.Render(status))
-	builder.WriteString("\n")
-
-	return builder.String()
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		renderTaskBand(task.Title, lipgloss.Color("210"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 5, 1, 8, lipgloss.Center),
+		renderTaskBand(task.Description, lipgloss.Color("228"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 7, 2, 5, lipgloss.Left),
+		renderTaskBand(status, lipgloss.Color("153"), statusStyle, 4, 1, 3, lipgloss.Left),
+	) + "\n"
 }
 
 func renderTaskWithID(task tasks.Task) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	descriptionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	idStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		renderTaskBand(task.Title, lipgloss.Color("210"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 5, 1, 8, lipgloss.Center),
+		renderTaskBand(task.Description, lipgloss.Color("228"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 7, 2, 5, lipgloss.Left),
+		renderTaskBand(task.ID, lipgloss.Color("153"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 4, 1, 3, lipgloss.Left),
+	) + "\n"
+}
 
-	builder := strings.Builder{}
-	builder.WriteString(titleStyle.Render(task.Title))
-	builder.WriteString("\n")
-	builder.WriteString(descriptionStyle.Render(task.Description))
-	builder.WriteString("\n")
-	builder.WriteString(idStyle.Render(task.ID))
-	builder.WriteString("\n")
+func renderTaskBand(
+	value string,
+	backgroundColor lipgloss.Color,
+	textStyle lipgloss.Style,
+	height int,
+	paddingTop int,
+	paddingX int,
+	align lipgloss.Position,
+) string {
+	bandStyle := lipgloss.NewStyle().
+		Width(taskDisplayWidth).
+		Height(height).
+		Padding(paddingTop, paddingX, 0, paddingX).
+		Background(backgroundColor)
 
-	return builder.String()
+	contentStyle := textStyle.
+		Width(taskDisplayWidth - (paddingX * 2)).
+		Background(backgroundColor).
+		Align(align)
+
+	return bandStyle.Render(contentStyle.Render(value))
 }
