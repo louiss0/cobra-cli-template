@@ -24,6 +24,23 @@ var _ = Describe("Task Output", func() {
 		}
 	})
 
+	It("expands a band for multiline content instead of forcing a height", func() {
+		assert := tAssert.New(GinkgoT())
+
+		content := renderTaskBand(
+			"line one\nline two\nline three\nline four",
+			descriptionBandTheme,
+			lipgloss.NewStyle().Bold(true),
+		)
+
+		lines := strings.Split(content, "\n")
+
+		assert.Greater(len(lines), 4)
+		for _, line := range lines {
+			assert.Equal(taskDisplayWidth, lipgloss.Width(line))
+		}
+	})
+
 	It("renders id cards at a fixed width", func() {
 		assert := tAssert.New(GinkgoT())
 

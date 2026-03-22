@@ -8,7 +8,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const taskDisplayWidth = 60
+const taskDisplayWidth = 35
+const taskContentWidth = taskDisplayWidth - 4
+
+type taskBandTheme struct {
+	Background lipgloss.TerminalColor
+	Foreground lipgloss.TerminalColor
+}
+
+var (
+	titleBandTheme = taskBandTheme{
+		Background: lipgloss.AdaptiveColor{Light: "#DCE7F4", Dark: "#223247"},
+		Foreground: lipgloss.AdaptiveColor{Light: "#102A43", Dark: "#EAF2FF"},
+	}
+	descriptionBandTheme = taskBandTheme{
+		Background: lipgloss.AdaptiveColor{Light: "#F2F5F7", Dark: "#273947"},
+		Foreground: lipgloss.AdaptiveColor{Light: "#1F2933", Dark: "#F7FAFC"},
+	}
+	incompleteBandTheme = taskBandTheme{
+		Background: lipgloss.AdaptiveColor{Light: "#FBE4D5", Dark: "#5C3520"},
+		Foreground: lipgloss.AdaptiveColor{Light: "#5C2E12", Dark: "#FFF3E8"},
+	}
+	completeBandTheme = taskBandTheme{
+		Background: lipgloss.AdaptiveColor{Light: "#D9F4E5", Dark: "#1F5134"},
+		Foreground: lipgloss.AdaptiveColor{Light: "#0F3B21", Dark: "#E8FFF1"},
+	}
+	idBandTheme = taskBandTheme{
+		Background: lipgloss.AdaptiveColor{Light: "#E4EBF5", Dark: "#31465E"},
+		Foreground: lipgloss.AdaptiveColor{Light: "#102A43", Dark: "#F4F8FC"},
+	}
+)
 
 func writeStyledTaskOutput(cmd *cobra.Command, task tasks.Task) error {
 	content := renderTaskWithStatus(task)
@@ -40,48 +69,43 @@ func writeTaskOutput(cmd *cobra.Command, content string) error {
 
 func renderTaskWithStatus(task tasks.Task) string {
 	status := "incomplete"
-	statusStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0"))
+	statusTheme := incompleteBandTheme
 	if task.Completed {
 		status = "complete"
-		statusStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0"))
+		statusTheme = completeBandTheme
 	}
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
-		renderTaskBand(task.Title, lipgloss.Color("210"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 5, 1, 8, lipgloss.Center),
-		renderTaskBand(task.Description, lipgloss.Color("228"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 7, 2, 5, lipgloss.Left),
-		renderTaskBand(status, lipgloss.Color("153"), statusStyle, 4, 1, 3, lipgloss.Left),
+		renderTaskBand(task.Title, titleBandTheme, lipgloss.NewStyle().Bold(true)),
+		renderTaskBand(task.Description, descriptionBandTheme, lipgloss.NewStyle()),
+		renderTaskBand(status, statusTheme, lipgloss.NewStyle().Bold(true)),
 	) + "\n"
 }
 
 func renderTaskWithID(task tasks.Task) string {
 	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		renderTaskBand(task.Title, lipgloss.Color("210"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 5, 1, 8, lipgloss.Center),
-		renderTaskBand(task.Description, lipgloss.Color("228"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 7, 2, 5, lipgloss.Left),
-		renderTaskBand(task.ID, lipgloss.Color("153"), lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")), 4, 1, 3, lipgloss.Left),
+		lipgloss.Center,
+		renderTaskBand(task.Title, titleBandTheme, lipgloss.NewStyle().Bold(true)),
+		renderTaskBand(task.Description, descriptionBandTheme, lipgloss.NewStyle()),
+		renderTaskBand(task.ID, idBandTheme, lipgloss.NewStyle().Bold(true)),
 	) + "\n"
 }
 
 func renderTaskBand(
 	value string,
-	backgroundColor lipgloss.Color,
+	theme taskBandTheme,
 	textStyle lipgloss.Style,
-	height int,
-	paddingTop int,
-	paddingX int,
-	align lipgloss.Position,
 ) string {
 	bandStyle := lipgloss.NewStyle().
 		Width(taskDisplayWidth).
-		Height(height).
-		Padding(paddingTop, paddingX, 0, paddingX).
-		Background(backgroundColor)
+		Padding(1, 2).
+		Background(theme.Background)
 
 	contentStyle := textStyle.
-		Width(taskDisplayWidth - (paddingX * 2)).
-		Background(backgroundColor).
-		Align(align)
+		Foreground(theme.Foreground).
+		Background(theme.Background).
+		Width(taskContentWidth)
 
 	return bandStyle.Render(contentStyle.Render(value))
 }
