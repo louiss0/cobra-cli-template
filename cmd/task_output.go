@@ -14,13 +14,13 @@ var taskTitleStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("0")).
 	Background(lipgloss.Color("12")).
 	Bold(true).
-	Padding(1, 3)
+	Padding(1)
 
 var taskStatusStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("15")).
 	Background(lipgloss.Color("1")).
 	Bold(true).
-	Padding(1, 2)
+	Padding(0, 1)
 
 func writeStyledTaskOutput(cmd *cobra.Command, task tasks.Task) error {
 	content := renderTaskWithStatus(task)

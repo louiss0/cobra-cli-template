@@ -2,6 +2,9 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/louiss0/cobra-cli-template/auth"
@@ -39,6 +42,32 @@ var _ = Describe("Root Command", func() {
 
 		assert.Error(err)
 		assert.Contains(err.Error(), "unknown command \"task\"")
+	})
+
+	It("uses the legacy config directory when it already exists", func() {
+		configDir := GinkgoT().TempDir()
+		legacyDir := filepath.Join(configDir, "task-list")
+
+		GinkgoT().Setenv("APPDATA", configDir)
+		GinkgoT().Setenv("LOCALAPPDATA", configDir)
+		GinkgoT().Setenv("XDG_CONFIG_HOME", configDir)
+		GinkgoT().Setenv("HOME", configDir)
+
+		err := os.MkdirAll(legacyDir, 0o755)
+		assert.NoError(err)
+
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      tasks.NewTaskID,
+		})
+
+		dataDirFlag := command.PersistentFlags().Lookup("data-dir")
+
+		assert.NotNil(dataDirFlag)
+		assert.Equal(legacyDir, dataDirFlag.DefValue)
+		assert.Equal(legacyDir, dataDirFlag.Value.String())
 	})
 
 	It("requires sign-in before managing tasks", func() {
@@ -316,7 +345,7 @@ var _ = Describe("Root Command", func() {
 		assert.Contains(output, "line two")
 		assert.Contains(output, "STATUS:")
 		assert.Contains(output, "incomplete")
-		assert.Contains(output, "STATUS:  incomplete")
+		assert.Contains(strings.Join(strings.Fields(output), " "), "STATUS: incomplete")
 	})
 
 	It("shows a clear flag message when update has no changes", func() {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -128,6 +129,8 @@ func Execute() error {
 		context.Background(),
 		rootCmd,
 		fang.WithoutCompletions(),
+		// main.go is the single place that should render command failures.
+		fang.WithErrorHandler(func(io.Writer, fang.Styles, error) {}),
 	)
 }
 
@@ -137,7 +140,26 @@ func defaultDataDir() string {
 		return filepath.Join(".", ".taskman")
 	}
 
-	return filepath.Join(configDir, "taskman")
+	taskmanDir := filepath.Join(configDir, "taskman")
+	if pathExists(taskmanDir) {
+		return taskmanDir
+	}
+
+	legacyDir := filepath.Join(configDir, "task-list")
+	if pathExists(legacyDir) {
+		return legacyDir
+	}
+
+	return taskmanDir
+}
+
+func pathExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	return info.IsDir()
 }
 
 func getAuthServiceFromCommandContext(cmd *cobra.Command) *auth.Service {
