@@ -2,42 +2,25 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/louiss0/cobra-cli-template/tasks"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
-const taskDisplayWidth = 35
-const taskContentWidth = taskDisplayWidth - 4
+var taskTitleStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("0")).
+	Background(lipgloss.Color("12")).
+	Bold(true).
+	Padding(1, 3)
 
-type taskBandTheme struct {
-	Background lipgloss.TerminalColor
-	Foreground lipgloss.TerminalColor
-}
-
-var (
-	titleBandTheme = taskBandTheme{
-		Background: lipgloss.AdaptiveColor{Light: "#DCE7F4", Dark: "#223247"},
-		Foreground: lipgloss.AdaptiveColor{Light: "#102A43", Dark: "#EAF2FF"},
-	}
-	descriptionBandTheme = taskBandTheme{
-		Background: lipgloss.AdaptiveColor{Light: "#F2F5F7", Dark: "#273947"},
-		Foreground: lipgloss.AdaptiveColor{Light: "#1F2933", Dark: "#F7FAFC"},
-	}
-	incompleteBandTheme = taskBandTheme{
-		Background: lipgloss.AdaptiveColor{Light: "#FBE4D5", Dark: "#5C3520"},
-		Foreground: lipgloss.AdaptiveColor{Light: "#5C2E12", Dark: "#FFF3E8"},
-	}
-	completeBandTheme = taskBandTheme{
-		Background: lipgloss.AdaptiveColor{Light: "#D9F4E5", Dark: "#1F5134"},
-		Foreground: lipgloss.AdaptiveColor{Light: "#0F3B21", Dark: "#E8FFF1"},
-	}
-	idBandTheme = taskBandTheme{
-		Background: lipgloss.AdaptiveColor{Light: "#E4EBF5", Dark: "#31465E"},
-		Foreground: lipgloss.AdaptiveColor{Light: "#102A43", Dark: "#F4F8FC"},
-	}
-)
+var taskStatusStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("15")).
+	Background(lipgloss.Color("1")).
+	Bold(true).
+	Padding(1, 2)
 
 func writeStyledTaskOutput(cmd *cobra.Command, task tasks.Task) error {
 	content := renderTaskWithStatus(task)
@@ -58,7 +41,6 @@ func writeCreatedTaskOutput(cmd *cobra.Command, task tasks.Task) error {
 }
 
 func writeTaskOutput(cmd *cobra.Command, content string) error {
-
 	_, err := fmt.Fprint(cmd.OutOrStdout(), content)
 	if err != nil {
 		return fmt.Errorf("write task output: %w", err)
@@ -69,43 +51,29 @@ func writeTaskOutput(cmd *cobra.Command, content string) error {
 
 func renderTaskWithStatus(task tasks.Task) string {
 	status := "incomplete"
-	statusTheme := incompleteBandTheme
 	if task.Completed {
 		status = "complete"
-		statusTheme = completeBandTheme
 	}
 
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		renderTaskBand(task.Title, titleBandTheme, lipgloss.NewStyle().Bold(true)),
-		renderTaskBand(task.Description, descriptionBandTheme, lipgloss.NewStyle()),
-		renderTaskBand(status, statusTheme, lipgloss.NewStyle().Bold(true)),
-	) + "\n"
+	return renderCenteredTask(task.Title, task.Description, "status", taskStatusStyle.Render(status))
 }
 
 func renderTaskWithID(task tasks.Task) string {
-	return lipgloss.JoinVertical(
-		lipgloss.Center,
-		renderTaskBand(task.Title, titleBandTheme, lipgloss.NewStyle().Bold(true)),
-		renderTaskBand(task.Description, descriptionBandTheme, lipgloss.NewStyle()),
-		renderTaskBand(task.ID, idBandTheme, lipgloss.NewStyle().Bold(true)),
-	) + "\n"
+	return renderCenteredTask(task.Title, task.Description, "id", task.ID)
 }
 
-func renderTaskBand(
-	value string,
-	theme taskBandTheme,
-	textStyle lipgloss.Style,
-) string {
-	bandStyle := lipgloss.NewStyle().
-		Width(taskDisplayWidth).
-		Padding(1, 2).
-		Background(theme.Background)
+func renderCenteredTask(title string, description string, footerTitle string, footerValue string) string {
+	titleText := taskTitleStyle.Render(title)
+	descriptionText := pterm.DefaultParagraph.WithMaxWidth(60).Sprint(description)
+	footerText := strings.ToUpper(footerTitle) + ": " + footerValue
 
-	contentStyle := textStyle.
-		Foreground(theme.Foreground).
-		Background(theme.Background).
-		Width(taskContentWidth)
+	content := strings.Join([]string{
+		titleText,
+		"",
+		descriptionText,
+		"",
+		footerText,
+	}, "\n")
 
-	return bandStyle.Render(contentStyle.Render(value))
+	return pterm.DefaultCenter.WithCenterEachLineSeparately().Sprint(content)
 }

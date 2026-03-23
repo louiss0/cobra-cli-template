@@ -129,6 +129,36 @@ var _ = Describe("Root Command", func() {
 		assert.NotContains(output, "\"title\"")
 	})
 
+	It("renders created tasks with the task id in the centered footer", func() {
+		dataDir := GinkgoT().TempDir()
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore:   tasks.NewStore,
+			Now:            time.Now,
+			NewTaskID:      func() string { return "task-1" },
+		})
+
+		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(command, "--data-dir", dataDir, "auth", "signin", "alice")
+		assert.NoError(err)
+
+		output, err := executeCmd(
+			command,
+			"--data-dir", dataDir,
+			"create",
+			"--title", "Write docs",
+			"--description", "Document the centered output",
+		)
+
+		assert.NoError(err)
+		assert.Contains(output, "Write docs")
+		assert.Contains(output, "Document the centered output")
+		assert.Contains(output, "ID:")
+		assert.Contains(output, "task-1")
+	})
+
 	It("lists complete and incomplete tasks separately", func() {
 		dataDir := GinkgoT().TempDir()
 		command := cmd.NewRootCmd(cmd.Dependencies{
@@ -252,6 +282,41 @@ var _ = Describe("Root Command", func() {
 		assert.Contains(output, "incomplete")
 		assert.NotContains(output, "\"id\"")
 		assert.NotContains(output, "\"title\"")
+	})
+
+	It("renders retrieved tasks with centered paragraph content and highlighted status", func() {
+		dataDir := GinkgoT().TempDir()
+		taskStore := tasks.NewStore(dataDir, time.Now, func() string { return "task-1" })
+		command := cmd.NewRootCmd(cmd.Dependencies{
+			NewAuthService: auth.NewService,
+			NewTaskStore: func(string, func() time.Time, func() string) *tasks.Store {
+				return taskStore
+			},
+			Now:       time.Now,
+			NewTaskID: func() string { return "task-1" },
+		})
+
+		_, err := executeCmd(command, "--data-dir", dataDir, "auth", "register", "alice")
+		assert.NoError(err)
+
+		_, err = executeCmd(command, "--data-dir", dataDir, "auth", "signin", "alice")
+		assert.NoError(err)
+
+		_, err = taskStore.Create("alice", tasks.CreateTaskInput{
+			Title:       "Write docs",
+			Description: "line one\nline two",
+		})
+		assert.NoError(err)
+
+		output, err := executeCmd(command, "--data-dir", dataDir, "get", "task-1")
+
+		assert.NoError(err)
+		assert.Contains(output, "Write docs")
+		assert.Contains(output, "line one")
+		assert.Contains(output, "line two")
+		assert.Contains(output, "STATUS:")
+		assert.Contains(output, "incomplete")
+		assert.Contains(output, "STATUS:  incomplete")
 	})
 
 	It("shows a clear flag message when update has no changes", func() {
