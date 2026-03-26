@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -20,16 +21,16 @@ defaults:
 
 jobs:
   lint:
-    name: Lint and vet
+    name: Lint, format, and vet
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -42,6 +43,20 @@ jobs:
             echo "These files are not gofmt-formatted:"
             echo "${files}"
             echo "Run: gofmt -s -w ."
+            exit 1
+          fi
+
+      - name: Install goimports
+        run: go install golang.org/x/tools/cmd/goimports@latest
+
+      - name: Verify goimports
+        run: |
+          set -euo pipefail
+          files=$(goimports -l . | grep -Ev '^(vendor/|$)' || true)
+          if [[ -n "${files}" ]]; then
+            echo "These files need goimports:"
+            echo "${files}"
+            echo "Run: goimports -w ."
             exit 1
           fi
 
@@ -60,8 +75,14 @@ jobs:
             exit 1
           fi
 
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m --output.text.colors=true --output.text.print-linter-name=true
+
   test:
-    name: Test (Ginkgo) + coverage
+    name: Test
     runs-on: ${{ matrix.os }}
     needs: [lint]
     strategy:
@@ -70,12 +91,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -89,19 +110,8 @@ jobs:
           version=$(go list -m -f '{{.Version}}' github.com/onsi/ginkgo/v2)
           go install github.com/onsi/ginkgo/v2/ginkgo@"${version}"
 
-      - name: Create coverage directory
-        run: mkdir -p coverage
-
-      - name: Run tests with coverage
-        run: |
-          set -euo pipefail
-          ginkgo -r --cover --output-dir coverage --keep-separate-coverprofiles
-
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ matrix.os }}
-          path: coverage/
+      - name: Run tests
+        run: ginkgo -r
 
   build:
     name: Cross-compile smoke builds
@@ -114,10 +124,10 @@ jobs:
         goarch: [amd64, arm64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -129,15 +139,9 @@ jobs:
           CGO_ENABLED: 0
         run: |
           set -euo pipefail
-          date_rfc3339=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          ldflags="-X github.com/louiss0/cobra-cli-template/build_info.rawCLI_VERSION=dev -X github.com/louiss0/cobra-cli-template/build_info.rawBUILD_DATE=${date_rfc3339} -X github.com/louiss0/g-tools/mode.buildMode=production -s -w"
+          DATE_RFC3339=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          LDFLAGS="-X github.com/louiss0/cobra-cli-template/build_info.rawCLI_VERSION=dev -X github.com/louiss0/cobra-cli-template/build_info.rawBUILD_DATE=${DATE_RFC3339} -X github.com/louiss0/g-tools/mode.buildMode=production -s -w"
           mkdir -p dist
           out="dist/cobra-cli-template-${GOOS}-${GOARCH}"
           if [[ "${GOOS}" == "windows" ]]; then out="${out}.exe"; fi
-          go build -trimpath -ldflags "${ldflags}" -o "${out}" ./main.go
-
-      - name: Upload binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: cobra-cli-template-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/
+          go build -trimpath -ldflags "${LDFLAGS}" -o "${out}" ./main.go

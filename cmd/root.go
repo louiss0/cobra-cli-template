@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/louiss0/cobra-cli-template/build_info"
@@ -10,7 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func GenerateContextFromMap(cmd *cobra.Command, dependencies map[string]any) context.Context {
+type commandContextKey string
+
+func GenerateContextFromMap(cmd *cobra.Command, dependencies map[commandContextKey]any) context.Context {
 
 	ctx := cmd.Context()
 	for k, v := range dependencies {
@@ -34,7 +37,10 @@ func init() {
 
 func NewRootCmd(deps Dependencies) *cobra.Command {
 
-	schema.Parse(deps)
+	err := validateDependencies(deps)
+	if err != nil {
+		panic(err)
+	}
 
 	cmd := &cobra.Command{
 		Use:   "cli",
@@ -46,7 +52,7 @@ Testify assertions.`,
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-			ctx := GenerateContextFromMap(cmd, map[string]any{})
+			ctx := GenerateContextFromMap(cmd, map[commandContextKey]any{})
 
 			cmd.SetContext(ctx)
 
@@ -68,4 +74,17 @@ Testify assertions.`,
 
 func Execute() error {
 	return rootCmd.ExecuteContext(context.Background())
+}
+
+func validateDependencies(deps Dependencies) error {
+	if deps.CommandRunner == nil && deps.ContextSetup == nil {
+		return nil
+	}
+
+	_, err := schema.Parse(deps)
+	if err != nil {
+		return fmt.Errorf("invalid root dependencies: %w", err)
+	}
+
+	return nil
 }
